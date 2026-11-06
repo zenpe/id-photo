@@ -10,6 +10,8 @@ function responseError(status: number, body: any): Error {
     (typeof body?.message === 'string' ? body.message : '请求失败，请稍后重试');
   if (status === 429) message = '操作过于频繁，请稍后再试';
   if (status >= 500) message = '服务暂不可用，请稍后再试';
+  if (status === 413) message = '照片文件过大，请选择较小的照片后重试';
+  if ([408, 504, 524].includes(status)) message = '处理等待超时，服务可能仍在处理。请稍候再试，原照片和参数已保留';
   const error: any = new Error(message);
   error.statusCode = status;
   return error;
@@ -119,7 +121,7 @@ export const uploadFile = async <T>(
         // Keep WeChat's transport error for diagnosis without logging images or credentials.
         const details = { url: targetUrl, errMsg: result?.errMsg || '', errCode: result?.errCode };
         console.error('[uploadFile] 上传失败', details);
-        const error: any = new Error('图片上传失败，请检查网络后重试');
+        const error: any = new Error(/timeout/i.test(details.errMsg) ? '处理等待超时，请稍候再试，照片和参数已保留' : '图片上传失败，请检查网络后重试，照片和参数已保留');
         error.errMsg = details.errMsg;
         error.errCode = details.errCode;
         reject(error);

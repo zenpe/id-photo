@@ -52,6 +52,7 @@
 import Vue from 'vue';
 import { Component } from 'vue-property-decorator';
 import { capabilities } from '@/config';
+import { clearDrafts } from '@/utils/task-draft';
 import StorageManager from '@/utils/storage';
 import { ElectronicPhotoManager } from '@/utils/electronic-photo';
 import { clearTemporaryImages } from '@/utils/image-file';
@@ -134,6 +135,7 @@ export default class Mine extends Vue {
         if (!ElectronicPhotoManager.clear()) throw new Error('电子照清理失败');
         StorageManager.clearPhotoHistory();
         uni.removeStorageSync('electronic_photo_history');
+        await clearDrafts();
         await clearTemporaryImages();
         this.electronicCount = ElectronicPhotoManager.getAll().length;
         uni.showToast({ title: '清理成功', icon: 'success' });

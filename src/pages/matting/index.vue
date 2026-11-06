@@ -1,5 +1,6 @@
 <template>
   <view class="matting-select">
+    <DraftResume kind="matting" @restore="restoreDraft" />
     <!-- 预览遮罩 -->
     <u-overlay :show="show" @click="show = false" :custom-style="{ backdropFilter: 'blur(20rpx)' }">
       <view class="preview-container" @click.stop>
@@ -160,6 +161,7 @@
 
     <!-- 底部操作区域 -->
     <view class="action-container">
+      <view v-if="imagePath" @click="confirmSelect">已保留所选照片 · 点击重新处理</view>
       <view class="action-tips">
         <u-icon name="info-circle-fill" color="#8C8C8C" size="14" />
         <text class="tips-text">请选择清晰的人像照片</text>
@@ -190,6 +192,8 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import DraftResume from '@/components/DraftResume.vue';
+import { rememberDraft, TaskDraft } from '@/utils/task-draft';
 import { Component } from "vue-property-decorator";
 import { humanMatting, MattingParams } from '@/api/matting';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
@@ -199,7 +203,7 @@ import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file';
 // 声明微信小程序类型
 declare const wx: any;
 
-@Component({ components: { LoadingOverlay, PhotoCamera } })
+@Component({ components: { DraftResume, LoadingOverlay, PhotoCamera } })
 export default class MattingPage extends Vue {
   // 按钮样式
   primaryButtonStyle = {
@@ -320,15 +324,28 @@ export default class MattingPage extends Vue {
   /**
    * 确认选择
    */
+
+  lastResultPath='';lastResultSource='';
+  async keepDraft() { await rememberDraft('matting',{source:this.imagePath,result:this.lastResultSource===this.imagePath?this.lastResultPath:''},{selectedModel:this.selectedModel,dpi:this.dpi}); }
+  onHide() { if(this.imagePath && !this.loading)this.keepDraft(); }
+  restoreDraft(draft:TaskDraft) {
+    this.imagePath=draft.files.source;this.lastResultPath=draft.files.result||'';this.lastResultSource=this.imagePath;if(draft.state.selectedModel!==undefined)this.selectedModel=draft.state.selectedModel;if(draft.state.dpi!==undefined)this.dpi=draft.state.dpi;
+    this.show=true;
+    if(this.lastResultPath)uni.navigateTo({url:'/pages/matting/result?image='+encodeURIComponent(this.lastResultPath)});
+  }
+
   async confirmSelect() {
     if (this.loading) return;
     if (!this.imagePath) { uni.showToast({ title: '请先选择图片', icon: 'none' }); return; }
     this.loading = true;
     let resultPath = '';
     try {
+      await this.keepDraft();
       const params: MattingParams = { human_matting_model: this.selectedModel, dpi: this.dpi };
       const data = await humanMatting(params, 'input_image', this.imagePath);
       resultPath = await writeTemporaryImage(data.image_base64, 'matting');
+      this.lastResultPath=resultPath;this.lastResultSource=this.imagePath;
+      await this.keepDraft();
       await new Promise<void>((resolve, reject) => uni.navigateTo({
         url: `/pages/matting/result?image=${encodeURIComponent(resultPath)}`,
         success: () => resolve(), fail: () => reject(new Error('打开结果页面失败，请重试'))

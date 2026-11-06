@@ -22,7 +22,7 @@
           </view>
           <view class="section-block">
             <text class="section-title">本地保存</text>
-            <text class="section-content">处理过程中会在小程序本地生成临时图片。您选择保存到电子照时，照片会保存在本设备的小程序存储中；保存到相册需要您的授权。</text>
+            <text class="section-content">处理过程中会在小程序本地生成临时图片。微信小程序会为每类工具保留一份本地制作草稿，最近操作后一天内可恢复，过期后在下次启动时清理。草稿不上传备份。您选择保存到电子照时，照片保存在本设备的小程序存储中，最多两张，需手动删除；保存到相册需要您的授权。</text>
             <text class="section-content">您可以在“我的 → 清理本地照片”删除小程序内的电子照、历史记录和临时图片。已保存到手机相册的照片请在相册中删除。</text>
           </view>
           <view class="section-block">

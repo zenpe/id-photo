@@ -45,8 +45,11 @@ const defaultModules = {
   '@/api/photo': { GeneratePhoto() {} }, '@/api/matting': { humanMatting() {} },
   '@/api/watermark': { addWatermark() {} }, '@/model/Colors': { Colors: [] },
   '@/components/LoadingOverlay.vue': { __esModule: true, default: {} },
+  '@/utils/task-draft': {rememberDraft:async()=>{},loadDraft:()=>null},
+  '@/components/DraftResume.vue': {__esModule:true,default:{}},
   '@/components/PhotoCamera.vue': { __esModule: true, default: {} },
   '@/utils/image-file': { writeTemporaryImage() {}, removeTemporaryImage() {} },
+  '@/utils/album': {saveToAlbum:async()=>{},showSaveFailure(){}},
   '@/utils/request': { uploadFile() {} }, '@/utils/ad-manager': { adManager: {} },
   '@/api/membership': { getMembershipStatus() {} }
 };

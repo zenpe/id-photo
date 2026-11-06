@@ -1,5 +1,6 @@
 <template>
   <view class="selection-page">
+    <DraftResume kind="photo" @restore="restoreDraft" />
     <view class="selection-content">
       <view class="selection-card">
         <view class="selection-title">已选规格</view>
@@ -32,7 +33,7 @@
         </view>
       </view>
     </view>
-    <view class="selection-actions">
+    <view class="selection-actions"><view v-if="imagePath" @click="confirmSelect">已保留所选照片 · 点击重试制作</view>
       <view class="selection-privacy"><u-icon name="lock" size="14" color="#777d85" /><text>照片将上传至服务器处理</text></view>
       <view class="selection-buttons"><view class="selection-secondary" @click="chooseImage('album')">从相册选择</view><view class="selection-primary" @click="chooseImage('camera')">拍摄照片</view></view>
     </view>
@@ -47,6 +48,8 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import DraftResume from '@/components/DraftResume.vue';
+import { rememberDraft, TaskDraft } from '@/utils/task-draft';
 import { Component } from "vue-property-decorator";
 import { GeneratePhoto } from '@/api/photo'
 import { PhotoSize } from '@/model/PhotoSize'
@@ -60,7 +63,7 @@ import { writeTemporaryImage, removeTemporaryImage } from "@/utils/image-file";
 // 声明微信小程序类型
 declare const wx: any;
 
-@Component({ components: { LoadingOverlay, PhotoCamera } })
+@Component({ components: { DraftResume, LoadingOverlay, PhotoCamera } })
 export default class PhotoIndex extends Vue {
   // 按钮样式
   primaryButtonStyle = {
@@ -184,6 +187,18 @@ export default class PhotoIndex extends Vue {
   /**
    * 确认选择
    */
+
+  async keepDraft() { await rememberDraft('photo',{source:this.imagePath},{stage:'source',form:{...this.form},modelIndex:this.modelIndex,photoSize:this.photoSize}); }
+  onHide() { if(this.imagePath && !this.loading)this.keepDraft(); }
+  restoreDraft(draft:TaskDraft) {
+    if(draft.state.photoSize)this.$store.commit('SET_PHOTO_SIZE',draft.state.photoSize);
+    if(draft.state.stage==='editing') {
+      this.setPhotoPath({base64:'',base64HD:'',base64Path:draft.files.standard,base64HDPath:draft.files.hd});
+      uni.navigateTo({url:'/pages/photo/edit?restore=1'}); return;
+    }
+    this.imagePath=draft.files.source; this.form={...draft.state.form};this.modelIndex=draft.state.modelIndex||0;
+  }
+
   async confirmSelect() {
     if (this.loading) return;
     if (!this.imagePath || !this.photoSize || !this.photoSize.pxWidth || !this.photoSize.pxHeight) {
@@ -194,6 +209,7 @@ export default class PhotoIndex extends Vue {
     let standardPath = '';
     let hdPath = '';
     try {
+      await this.keepDraft();
       const form = { ...this.form, height: this.photoSize.pxHeight, width: this.photoSize.pxWidth, dpi: this.photoSize.dpi || 300, hd: true };
       const data = await GeneratePhoto(form, 'input_image', this.imagePath);
       if (!data.image_base64_standard || !data.image_base64_hd) throw new Error('服务器未返回完整照片，请重试');

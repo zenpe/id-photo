@@ -26,9 +26,20 @@ export function writeTemporaryImage(data: string, purpose: string): Promise<stri
 export function removeTemporaryImage(path: string): void {
   // #ifdef MP-WEIXIN
   const prefix = `${wx.env.USER_DATA_PATH}/`;
-  if (!path || !path.startsWith(prefix) || !ownedPattern.test(path.slice(prefix.length))) return;
+  if (!path || path.startsWith(prefix + 'idphoto-draft-') || !path.startsWith(prefix) || !ownedPattern.test(path.slice(prefix.length))) return;
   uni.getFileSystemManager().unlink({ filePath: path, fail: () => {} });
   // #endif
+}
+
+export function readImageBase64(path: string): Promise<string> {
+  return new Promise((resolve,reject)=> {
+    // #ifdef MP-WEIXIN
+    uni.getFileSystemManager().readFile({filePath:path,encoding:'base64',success:(result:any)=>resolve('data:image/' + (/\.jpe?g$/i.test(path)?'jpeg':'png') + ';base64,' + result.data),fail:()=>reject(new Error('图片无法读取，请重新制作'))});
+    // #endif
+    // #ifndef MP-WEIXIN
+    reject(new Error('当前环境不支持本地图片处理'));
+    // #endif
+  });
 }
 
 export function clearTemporaryImages(): Promise<void> {

@@ -117,6 +117,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import { saveToAlbum, showSaveFailure } from '@/utils/album';
 import { Component } from "vue-property-decorator";
 import { ElectronicPhotoManager, ElectronicPhoto } from '@/utils/electronic-photo';
 import { adManager } from '@/utils/ad-manager';
@@ -237,13 +238,10 @@ export default class ElectronicPage extends Vue {
       if (!await adManager.show('electronic:' + photo.id)) return;
       this.processing = true;
       path = await writeTemporaryImage(photo.hdBase64, 'electronic');
-      await new Promise<void>((resolve, reject) => uni.saveImageToPhotosAlbum({
-        filePath: path, success: () => resolve(),
-        fail: (err: any) => reject(new Error(err.errMsg && err.errMsg.indexOf('cancel') >= 0 ? '已取消保存' : '保存失败，请检查相册权限'))
-      }));
+      await saveToAlbum(path);
       uni.showToast({ title: '保存成功', icon: 'success' });
     } catch (error: any) {
-      uni.showModal({ title: '保存失败', content: error.message || '保存失败，请重试', showCancel: false });
+      showSaveFailure(error);
     } finally { removeTemporaryImage(path); this.processing = false; this.loading = false; }
   }
 

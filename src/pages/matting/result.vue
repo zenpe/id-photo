@@ -72,6 +72,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import { saveToAlbum, showSaveFailure } from '@/utils/album';
 import { Component } from "vue-property-decorator";
 import { adManager } from '@/utils/ad-manager'
 import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file'
@@ -101,13 +102,10 @@ export default class MattingResult extends Vue {
       this.processing = true;
       const path = this.imagePath.startsWith('data:image/')
         ? (temporary = await writeTemporaryImage(this.imagePath, 'matting')) : this.imagePath;
-      await new Promise<void>((resolve, reject) => uni.saveImageToPhotosAlbum({
-        filePath: path, success: () => resolve(),
-        fail: (err: any) => reject(new Error(err.errMsg && err.errMsg.indexOf('cancel') >= 0 ? '已取消保存' : '保存失败，请检查相册权限'))
-      }));
+      await saveToAlbum(path);
       uni.showToast({ title: '保存成功', icon: 'success' });
     } catch (err: any) {
-      uni.showModal({ title: '保存失败', content: err.message || '保存失败，请重试', showCancel: false });
+      showSaveFailure(err);
     } finally { removeTemporaryImage(temporary); this.processing = false; this.saving = false; }
   }
 

@@ -21,9 +21,16 @@ function loadComponent(file, modules, uni) {
     'vue-property-decorator': { Component: () => target => target, Prop: decorator, Watch: decorator },
     'vuex-class': { Getter: decorator, Mutation: decorator },
     '@/components/LoadingOverlay.vue': { __esModule: true, default: {} },
-    '@/components/PhotoCamera.vue': { __esModule: true, default: {} },
+    '@/utils/task-draft': {rememberDraft:async()=>{},loadDraft:()=>null},
+  '@/components/DraftResume.vue': {__esModule:true,default:{}},
+  '@/components/PhotoCamera.vue': { __esModule: true, default: {} },
   };
   vm.runInNewContext(code, { module: mod, exports: mod.exports, require(name) {
+    if(name==='@/utils/album') {
+      const album={exports:{}};
+      const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/utils/album.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+      vm.runInNewContext(code,{module:album,exports:album.exports,uni,Promise,Error});return album.exports;
+    }
     if (name in modules) return modules[name];
     if (name in common) return common[name];
     throw Error(`unexpected import ${name}`);
@@ -70,8 +77,13 @@ async function convertFlow() {
   assert.strictEqual(page.processing, true); assert.strictEqual(page.busy, true);
   upload.resolve({image_base64:'test',width:20,height:30,size_bytes:100,target_met:true}); await operation;
   assert.strictEqual(page.resultPath, '/tmp/result.png'); assert.strictEqual(page.processing, false); assert.strictEqual(page.busy, false);
+  page.setFormat('png');
+  assert.strictEqual(page.resultPath,'/tmp/result.png','changing settings preserves last successful result');
+  assert.strictEqual(page.resultCurrent,false,'old output must not masquerade as new format');
   upload = deferred(); operation = page.convert(); upload.reject(Error('offline')); await operation;
   assert.strictEqual(page.processing, false); assert.strictEqual(page.busy, false); assert.strictEqual(modal, 1);
+  page.setFormat('jpg');
+  assert.strictEqual(page.resultCurrent,true,'reverting settings allows saving the prior result');
   operation = page.save();
   assert.strictEqual(page.busy, true); assert.strictEqual(page.processing, false, 'do not cover the ad');
   ad.resolve(null); await operation;
@@ -102,9 +114,9 @@ async function electronicPreviewFlow() {
 }
 
 async function photoFlow() {
-  let ad = deferred(), color = deferred(), saved = null, modal = 0;
+  let ad = deferred(), color = deferred(), saved = null, modal = 0, renders = 0;
   const Page = loadComponent('src/pages/photo/edit.vue', {
-    '@/api/photo': { AddBackgroudColor: () => color.promise, GenerateLayoutPhoto: noop },
+    '@/api/photo': { AddBackgroudColor: () => {renders++;return color.promise;}, GenerateLayoutPhoto: noop },
     '@/utils/electronic-photo': { ElectronicPhotoManager: {} },
     '@/utils/storage': { __esModule:true, default:{recordPhotoCreated:noop} },
     '@/utils/ad-manager': { adManager: { authorize: () => ad.promise } },
@@ -122,9 +134,14 @@ async function photoFlow() {
   assert.strictEqual(page.processing, true); color.resolve({image_base64:'test'}); await tick();
   assert.strictEqual(page.processing, false); assert(saved); saved.success(); await operation;
   assert.strictEqual(page.busy, false); assert.strictEqual(page.processing, false); assert.strictEqual(modal, 0);
+  ad=deferred(); operation=page.save(); ad.resolve('member');await tick();
+  assert.strictEqual(renders,1,'saving an existing output must not repeat server processing');
+  saved.fail({errMsg:'saveImageToPhotosAlbum:fail auth deny'});await operation;
+  assert.strictEqual(page.cachedPath,'/tmp/result.png','album denial preserves generated output');
+  page.IDPhotoForm.color='#438edb';
   ad = deferred(); color = deferred(); operation = page.save(); ad.resolve('member'); await tick();
   assert.strictEqual(page.processing, true); color.reject(Error('offline')); await operation;
-  assert.strictEqual(page.busy, false); assert.strictEqual(page.processing, false); assert.strictEqual(modal, 1);
+  assert.strictEqual(page.busy, false); assert.strictEqual(page.processing, false); assert.strictEqual(modal, 2);
 }
 
 (async () => {

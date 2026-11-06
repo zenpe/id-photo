@@ -1,6 +1,7 @@
 <script lang="ts">
 import Vue from 'vue';
 import StorageManager from '@/utils/storage';
+import { pruneDrafts } from '@/utils/task-draft';
 import { refreshCapabilities } from '@/api/capabilities';
 
 // 声明微信小程序类型
@@ -11,6 +12,7 @@ export default Vue.extend({
     onLaunch() {
         console.log('App Launch');
         this.initApp();
+        pruneDrafts();
         this.initGlobalShare();
     },
     onShow() {

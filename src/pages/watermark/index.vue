@@ -1,5 +1,6 @@
 <template>
   <view class="watermark-select">
+    <DraftResume kind="watermark" @restore="restoreDraft" />
     <!-- 预览遮罩 -->
     <u-overlay :show="show" @click="show = false" :custom-style="{ backdropFilter: 'blur(20rpx)' }">
       <view class="preview-container" @click.stop>
@@ -306,6 +307,8 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import DraftResume from '@/components/DraftResume.vue';
+import { rememberDraft, TaskDraft } from '@/utils/task-draft';
 import { Component } from "vue-property-decorator";
 import { addWatermark, WatermarkParams } from '@/api/watermark';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
@@ -315,7 +318,7 @@ import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file';
 // 声明微信小程序类型
 declare const wx: any;
 
-@Component({ components: { LoadingOverlay, PhotoCamera } })
+@Component({ components: { DraftResume, LoadingOverlay, PhotoCamera } })
 export default class WatermarkPage extends Vue {
   // 按钮样式
   primaryButtonStyle = {
@@ -467,8 +470,19 @@ export default class WatermarkPage extends Vue {
   /**
    * 确认选择
    */
+
+  lastResultPath='';lastResultSource='';
+  async keepDraft() { await rememberDraft('watermark',{source:this.imagePath,result:this.lastResultSource===this.imagePath?this.lastResultPath:''},{watermarkText:this.watermarkText,fontSize:this.fontSize,opacity:this.opacity,angle:this.angle,selectedColor:this.selectedColor,space:this.space,dpi:this.dpi}); }
+  onHide() { if(this.imagePath && !this.loading)this.keepDraft(); }
+  restoreDraft(draft:TaskDraft) {
+    this.imagePath=draft.files.source;this.lastResultPath=draft.files.result||'';this.lastResultSource=this.imagePath;if(draft.state.watermarkText!==undefined)this.watermarkText=draft.state.watermarkText;if(draft.state.fontSize!==undefined)this.fontSize=draft.state.fontSize;if(draft.state.opacity!==undefined)this.opacity=draft.state.opacity;if(draft.state.angle!==undefined)this.angle=draft.state.angle;if(draft.state.selectedColor!==undefined)this.selectedColor=draft.state.selectedColor;if(draft.state.space!==undefined)this.space=draft.state.space;if(draft.state.dpi!==undefined)this.dpi=draft.state.dpi;
+    this.preselectedImage=true;
+    if(this.lastResultPath)uni.navigateTo({url:'/pages/watermark/result?image='+encodeURIComponent(this.lastResultPath)});
+  }
+
   async confirmSelect() {
     if (this.loading) return;
+    this.preselectedImage=!!this.imagePath;
     if (!this.imagePath) { uni.showToast({ title: '请先选择图片', icon: 'none' }); return; }
     if (!this.watermarkText.trim()) {
       uni.showToast({ title: '请输入水印文字', icon: 'none' }); return;
@@ -476,10 +490,13 @@ export default class WatermarkPage extends Vue {
     this.loading = true;
     let resultPath = '';
     try {
+      await this.keepDraft();
       const params: WatermarkParams = { text: this.watermarkText, size: this.fontSize, opacity: this.opacity / 100,
         angle: this.angle, color: this.selectedColor, space: this.space, dpi: this.dpi };
       const data = await addWatermark(params, 'input_image', this.imagePath);
       resultPath = await writeTemporaryImage(data.image_base64, 'watermark');
+      this.lastResultPath=resultPath;this.lastResultSource=this.imagePath;
+      await this.keepDraft();
       await new Promise<void>((resolve, reject) => uni.navigateTo({
         url: `/pages/watermark/result?image=${encodeURIComponent(resultPath)}`,
         success: () => resolve(), fail: () => reject(new Error('打开结果页面失败，请重试'))

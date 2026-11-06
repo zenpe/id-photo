@@ -38,6 +38,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import { saveToAlbum, showSaveFailure } from '@/utils/album';
 import { Component } from 'vue-property-decorator';
 import { Getter, Mutation } from 'vuex-class';
 import { AddBackgroudColor, GenerateLayoutPhoto } from '@/api/photo';
@@ -46,8 +47,9 @@ import { PhotoPath } from '@/model/Interfaces';
 import { ElectronicPhotoManager } from '@/utils/electronic-photo';
 import StorageManager from '@/utils/storage';
 import { adManager } from '@/utils/ad-manager';
+import { rememberDraft, loadDraft } from '@/utils/task-draft';
 import { getMembershipStatus } from '@/api/membership';
-import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file';
+import { writeTemporaryImage, removeTemporaryImage, readImageBase64 } from '@/utils/image-file';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 
 const colors = [
@@ -65,6 +67,10 @@ export default class PhotoEdit extends Vue {
   isHd = true; saveToElectronic = false; busy = false; processing = false; cropLine = false;
   outputMode = 'photo'; showMoreColors = false; settingsExpanded = false; paperIndex = 0;
   actualDimensions = ''; memberState: 'member' | 'ordinary' | 'unknown' = 'unknown';
+  cachedPath=''; cachedKey=''; cachedOutput='';
+  async keepDraft(){ if(!this.photoPath)return;await rememberDraft('photo',{standard:this.photoPath.base64Path,hd:this.photoPath.base64HDPath,result:this.cachedPath},{stage:'editing',photoSize:this.photoSize,IDPhotoForm:{...this.IDPhotoForm},isHd:this.isHd,outputMode:this.outputMode,paperIndex:this.paperIndex,cropLine:this.cropLine,saveToElectronic:this.saveToElectronic,cachedKey:this.cachedKey}); }
+  onHide(){ if(!this.busy)this.keepDraft(); }
+  onLoad(options:any){if(!options || options.restore!=='1'){this.keepDraft();return;}const draft=loadDraft('photo');if(!draft)return;const state=draft.state;this.IDPhotoForm=state.IDPhotoForm;this.isHd=state.isHd;this.outputMode=state.outputMode;this.paperIndex=state.paperIndex;this.cropLine=state.cropLine;this.saveToElectronic=state.saveToElectronic;this.cachedPath=draft.files.result||'';this.cachedKey=state.cachedKey||'';}
   papers = [{ label: '六寸 (4R)', value: '4r' }, { label: '五寸 (3R)', value: '3r' }, { label: 'A4', value: 'a4' }];
   get visibleColors() { return this.showMoreColors ? colors : colors.slice(0, 3); }
   get currentPath() { if (!this.photoPath) return ''; return this.isHd && this.photoPath.base64HDPath ? this.photoPath.base64HDPath : this.photoPath.base64Path; }
@@ -72,10 +78,12 @@ export default class PhotoEdit extends Vue {
   get previewHeight(): number { const ratio = this.photoSize.pxWidth / this.photoSize.pxHeight; return Math.round(Math.min(650, 560 / ratio)); }
   get accessHint() { return adManager.hint(this.memberState === 'member'); }
   get saveButtonText() { return (adManager.label(this.memberState === 'member') + ' · ') + (this.outputMode === 'layout' ? '排版照' : '电子照'); }
-  get saveKey() { return JSON.stringify([this.currentPath, this.IDPhotoForm.color, this.outputMode, this.paperIndex, this.cropLine]); }
+  get saveKey() { return JSON.stringify([this.isHd, this.IDPhotoForm, this.outputMode, this.paperIndex, this.cropLine]); }
   onShow() { this.refreshDimensions(); if (adManager.requiresAd) this.refreshMembership(); }
-  onUnload() {
+  async onUnload() {
+    await this.keepDraft();
     if (this.photoPath) { removeTemporaryImage(this.photoPath.base64Path); removeTemporaryImage(this.photoPath.base64HDPath); }
+    removeTemporaryImage(this.cachedPath);
     this.setPhotoPath({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
   }
   async refreshMembership() { try { this.memberState = (await getMembershipStatus()).active ? 'member' : 'ordinary'; } catch (_) { this.memberState = 'unknown'; } }
@@ -102,6 +110,8 @@ export default class PhotoEdit extends Vue {
         this.memberState = access === 'member' ? 'member' : 'ordinary';
       }
       this.processing = true;
+      let output=this.cachedOutput;
+      if(this.cachedPath && this.cachedKey===key){ resultPath=this.cachedPath; } else {
       const dpi = this.photoSize.dpi || 300;
       const colorForm: any = { color: this.IDPhotoForm.color.replace('#', ''), dpi };
       if (this.IDPhotoForm.kb !== undefined) colorForm.kb = this.IDPhotoForm.kb;
@@ -109,19 +119,22 @@ export default class PhotoEdit extends Vue {
       const color = await AddBackgroudColor(colorForm, 'input_image', imagePath);
       if (!color.image_base64) throw new Error('服务器未返回照片');
       colorPath = await writeTemporaryImage(color.image_base64, 'color');
-      let output = color.image_base64;
+      output = color.image_base64;
       if (layout) {
         const result = await GenerateLayoutPhoto({ height: this.photoSize.pxHeight, width: this.photoSize.pxWidth, dpi, paper_size: this.papers[this.paperIndex].value, crop_line: this.cropLine }, 'input_image', colorPath);
         if (!result.image_base64) throw new Error('服务器未返回排版照');
         output = result.image_base64; resultPath = await writeTemporaryImage(output, 'layout');
       } else resultPath = colorPath;
+      const old=this.cachedPath;this.cachedPath=resultPath;this.cachedKey=key;this.cachedOutput=output;removeTemporaryImage(old);
+      }
+      await this.keepDraft();
       this.processing = false;
-      await new Promise<void>((resolve, reject) => uni.saveImageToPhotosAlbum({ filePath: resultPath, success: () => resolve(), fail: (err: any) => reject(new Error(err.errMsg && err.errMsg.indexOf('cancel') >= 0 ? '已取消保存' : '保存失败，请检查相册权限')) }));
+      await saveToAlbum(resultPath);
       try { StorageManager.recordPhotoCreated(); } catch (_) { /* statistics are optional */ }
-      if (!layout && this.saveToElectronic) this.saveToElectronicPhoto(output);
+      if (!layout && this.saveToElectronic) {if(!output)output=await readImageBase64(resultPath);this.saveToElectronicPhoto(output);}
       else uni.showToast({ title: '保存成功', icon: 'success' });
-    } catch (err: any) { uni.showModal({ title: '处理失败', content: err.message || '操作失败，请重试', showCancel: false }); }
-    finally { this.processing = false; removeTemporaryImage(colorPath); if (resultPath !== colorPath) removeTemporaryImage(resultPath); this.busy = false; }
+    } catch (err: any) { showSaveFailure(err); }
+    finally { this.processing = false; if(colorPath!==this.cachedPath)removeTemporaryImage(colorPath); if (resultPath !== colorPath && resultPath!==this.cachedPath) removeTemporaryImage(resultPath); this.busy = false; }
   }
   saveToElectronicPhoto(base64Data: string) {
     if (!ElectronicPhotoManager.canSaveMore()) { uni.showModal({ title: '已保存到相册', content: '电子照已达上限（2张），请先删除后再保存到电子照', showCancel: false }); return; }
