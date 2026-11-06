@@ -100,6 +100,15 @@ def image_data_url(image_bytes):
     return f"data:{mime};base64," + base64.b64encode(image_bytes).decode("ascii")
 
 
+def face_error_response(error):
+    message = (
+        "未检测到清晰正脸，请使用光线充足、脸部无遮挡的单人正面照片重试"
+        if error.face_num == 0 else
+        "检测到多张人脸，请使用只有一人的正面照片重试"
+    )
+    return {"status": False, "message": message, "face_count": error.face_num}
+
+
 def validate_matting_model(model):
     if model not in WEIGHTS:
         raise HTTPException(400, "不支持的人像模型")
@@ -273,8 +282,8 @@ async def idphoto_inference(
             sharpen_strength=sharpen_strength,
             saturation_strength=saturation_strength,
         )
-    except FaceError:
-        result_message = {"status": False}
+    except FaceError as error:
+        result_message = face_error_response(error)
     # 如果检测到人脸数量等于1, 则返回标准证和高清照结果（png 4通道图像）
     else:
         result_image_standard_bytes = save_image_dpi_to_bytes(result.standard, None, dpi)
@@ -368,8 +377,8 @@ async def human_matting_inference(
         result = await asyncio.to_thread(
             run_creator, img, matting_model=human_matting_model, change_bg_only=True,
         )
-    except FaceError:
-        result_message = {"status": False}
+    except FaceError as error:
+        result_message = face_error_response(error)
 
     else:
         result_image_standard_bytes = save_image_dpi_to_bytes(cv2.cvtColor(result.standard, cv2.COLOR_RGBA2BGRA), None, dpi)
@@ -581,8 +590,8 @@ async def idphoto_crop_inference(
             head_top_range=(top_distance_max, top_distance_min),
             crop_only=True,
         )
-    except FaceError:
-        result_message = {"status": False}
+    except FaceError as error:
+        result_message = face_error_response(error)
     # 如果检测到人脸数量等于1, 则返回标准证和高清照结果（png 4通道图像）
     else:
         result_image_standard_bytes = save_image_dpi_to_bytes(cv2.cvtColor(result.standard, cv2.COLOR_RGBA2BGRA), None, dpi)

@@ -28,6 +28,18 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 RETINAFCE_SESS = None
 
 
+def _detect_mtcnn(image, **options):
+    try:
+        return mtcnn.detect(image, **options)
+    except ValueError as error:
+        # mtcnn-runtime calls np.vstack([]) when its first stage finds no
+        # candidates. Treat that specific case like an empty detection so the
+        # caller can retry at full resolution. Other detector errors must surface.
+        if str(error) != "need at least one array to concatenate":
+            raise
+        return [], []
+
+
 def detect_face_mtcnn(ctx: Context, scale: int = 2):
     """
     基于MTCNN模型的人脸检测处理器，只进行人脸数量的检测
@@ -44,12 +56,12 @@ def detect_face_mtcnn(ctx: Context, scale: int = 2):
         interpolation=cv2.INTER_AREA,
     )
     # landmarks 是 5 个关键点，分别是左眼、右眼、鼻子、左嘴角、右嘴角，
-    faces, landmarks = mtcnn.detect(image, thresholds=[0.8, 0.8, 0.8])
+    faces, landmarks = _detect_mtcnn(image, thresholds=[0.8, 0.8, 0.8])
 
     # print(len(faces))
     if len(faces) != 1:
         # 保险措施，如果检测到多个人脸或者没有人脸，用原图再检测一次
-        faces, landmarks = mtcnn.detect(ctx.origin_image)
+        faces, landmarks = _detect_mtcnn(ctx.origin_image)
     else:
         # 如果只有一个人脸，将人脸坐标放大
         for item, param in enumerate(faces[0]):
