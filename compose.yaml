@@ -2,7 +2,7 @@ name: id-photo
 
 services:
   api:
-    image: id-photo-api:local
+    image: ${IDPHOTO_IMAGE:-id-photo-api:local}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -14,13 +14,12 @@ services:
       IDPHOTO_DATA_DIR: /data
       IDPHOTO_AUTH_REQUIRED: "true"
       IDPHOTO_CONTENT_SECURITY_ENABLED: "true"
-      IDPHOTO_PAYMENT_ENABLED: "false"
       IDPHOTO_PAYMENT_ENV: "0"
       IDPHOTO_TRUST_CLOUDFLARE: "false"
     ports:
-      - "8080:8080"
+      - "${IDPHOTO_API_BIND:-0.0.0.0}:${IDPHOTO_API_PORT:-8090}:8080"
     volumes:
-      - ./backend/.miniapp_data:/data
+      - ${IDPHOTO_DATA_PATH:-./backend/.miniapp_data}:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import json, urllib.request; r = urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5); assert json.load(r)['status'] == 'ok'"]
       interval: 30s
@@ -32,3 +31,52 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  push:
+    image: ${IDPHOTO_IMAGE:-id-photo-api:local}
+    profiles: [push]
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: ./backend/.env.push
+        required: false
+    environment:
+      IDPHOTO_DATA_DIR: /data
+    command: [python, -m, uvicorn, 'miniapp_push:app', --host, 0.0.0.0, --port, '8092', --no-access-log, --no-proxy-headers]
+    ports:
+      - "${IDPHOTO_PUSH_BIND:-0.0.0.0}:${IDPHOTO_PUSH_PORT:-8092}:8092"
+    volumes:
+      - ${IDPHOTO_DATA_PATH:-./backend/.miniapp_data}:/data
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+
+  admin:
+    image: ${IDPHOTO_IMAGE:-id-photo-api:local}
+    profiles: [admin]
+    restart: unless-stopped
+    init: true
+    # Linux/fnOS: keep the original loopback + Host/Origin security boundary.
+    network_mode: host
+    env_file:
+      - path: ./backend/.env.admin
+        required: false
+    environment:
+      IDPHOTO_DATA_DIR: /data
+      IDPHOTO_ADMIN_PORT: '8091'
+    command: [python, miniapp_admin.py]
+    volumes:
+      - ${IDPHOTO_DATA_PATH:-./backend/.miniapp_data}:/data
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}

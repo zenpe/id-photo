@@ -1,0 +1,6 @@
+# Numerical runtime versions seen in the initial NAS installation.
+# This is not a complete transitive lock; archive requirements.resolved.txt
+# and the verified image before rollout (see docs/deploy-fnos.md).
+numpy==1.26.4
+opencv-python==4.11.0.86
+onnxruntime==1.31.1

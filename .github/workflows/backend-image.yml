@@ -1,0 +1,51 @@
+name: Backend image and inference
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build amd64 image, validate dependencies and imports
+        run: docker build --platform linux/amd64 -t id-photo-api:ci backend
+      - name: Run backend regressions in the deployed runtime
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/face-detection.test.py
+          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/capabilities.test.py
+          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/startup-concurrency.test.py
+          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci sh -c 'pip install httpx==0.28.1 && python tests/deployment.test.py'
+      - name: Run actual default-model inference (public upstream fixture)
+        run: docker run --rm -v "$PWD/backend/hivision-core/demo/images:/fixtures:ro" id-photo-api:ci python smoke_inference.py /fixtures/test0.jpg
+      - name: Start isolated API
+        run: |
+          docker run -d --name api-ci -p 127.0.0.1:18090:8080 -e WECHAT_APP_ID=wx0000000000000000 -e WECHAT_APP_SECRET=ci-not-a-production-secret -e IDPHOTO_TOKEN_SECRET=ci-not-a-production-secret-at-least-32-characters -e IDPHOTO_AUTH_REQUIRED=true -e IDPHOTO_CONTENT_SECURITY_ENABLED=true id-photo-api:ci
+          python - <<'PY'
+          import json, time, urllib.request, urllib.error
+          for attempt in range(30):
+              try:
+                  assert json.load(urllib.request.urlopen('http://127.0.0.1:18090/health'))['status']=='ok'
+                  break
+              except Exception:
+                  if attempt==29: raise
+                  time.sleep(1)
+          policy=json.load(urllib.request.urlopen('http://127.0.0.1:18090/capabilities'))
+          assert policy['saveMode']=='free' and not policy['purchaseEnabled']
+          try:
+              urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18090/idphoto',data=b''))
+              raise AssertionError('Unauthenticated image request was accepted')
+          except urllib.error.HTTPError as error:
+              assert error.code==401
+          PY
+      - name: Export resolved dependencies
+        run: docker run --rm id-photo-api:ci cat /app/requirements.resolved.txt > requirements.resolved.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-resolved-dependencies
+          path: requirements.resolved.txt
+      - name: Logs and cleanup
+        if: always()
+        run: |
+          docker logs api-ci 2>/dev/null || true
+          docker rm -f api-ci 2>/dev/null || true

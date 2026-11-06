@@ -104,6 +104,8 @@ def initialize():
           reason TEXT NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL
         );
         ''')
+        # Serialize schema checks and ALTERs across API/push/admin startups.
+        db.execute('BEGIN IMMEDIATE')
         columns = {row['name'] for row in db.execute('PRAGMA table_info(orders)').fetchall()}
         for column, declaration in (
             ('product_id', "TEXT NOT NULL DEFAULT ''"), ('platform_order_id', 'TEXT'),
@@ -127,7 +129,6 @@ def initialize():
         db.execute('CREATE INDEX IF NOT EXISTS refund_entitlement_checks_pending ON refund_entitlement_checks(state, updated_at)')
         db.execute('CREATE INDEX IF NOT EXISTS membership_refund_revocations_subject ON membership_refund_revocations(subject)')
         db.execute('CREATE INDEX IF NOT EXISTS adjustments_subject_created ON member_adjustments(subject, created_at)')
-        db.execute("BEGIN IMMEDIATE")
         if not db.execute("SELECT 1 FROM settings WHERE key = 'catalog_initialized'").fetchone():
             db.executemany('INSERT INTO plans (name, months, price_fen, description, sort_order) VALUES (?, ?, ?, ?, ?)', [
                 ('1个月会员', 1, 1200, '会员免广告保存', 1),

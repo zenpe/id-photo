@@ -20,5 +20,10 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+@app.get('/health')
+def health():
+    return {'status': 'ok', 'service': 'push'}
+
 app.add_api_route('/payment/notify', verify_push, methods=['GET'])
 app.add_api_route('/payment/notify', receive_push, methods=['POST'])

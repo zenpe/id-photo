@@ -2,6 +2,7 @@
 **
 !Dockerfile
 !requirements.txt
+!constraints-api.txt
 !hivision-core/
 !hivision-core/requirements.txt
 !hivision-core/requirements-app.txt
@@ -9,6 +10,9 @@
 !hivision-core/hivision/**
 !hivision-overlay/
 !hivision-overlay/*.py
+!hivision-overlay/miniapp_admin.html
+!hivision-overlay/miniapp_admin.css
+!hivision-overlay/miniapp_admin.js
 !scripts/
 !scripts/download_models.py
 **/__pycache__/

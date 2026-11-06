@@ -145,6 +145,12 @@ def index():
     return (Path(__file__).resolve().parent / 'miniapp_admin.html').read_text(encoding='utf-8')
 
 
+@app.get('/health')
+def health():
+    # Still protected by the loopback/Host middleware, not exposed publicly.
+    return {'status': 'ok', 'service': 'admin'}
+
+
 @app.get('/admin.css', dependencies=[Depends(require_admin)])
 def admin_css():
     return FileResponse(Path(__file__).resolve().parent / 'miniapp_admin.css', media_type='text/css')
