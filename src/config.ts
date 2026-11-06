@@ -29,5 +29,7 @@ export const baseUrl = baseApi[env].host.replace(/\/$/, '');
 
 // Set VUE_APP_REWARDED_VIDEO_AD_UNIT_ID in .env.local before building.
 export const adConfig = {
-  rewardedVideoAdUnitId: process.env.VUE_APP_REWARDED_VIDEO_AD_UNIT_ID || ''
+  rewardedVideoAdUnitId: process.env.VUE_APP_REWARDED_VIDEO_AD_UNIT_ID || '',
+  saveMode: 'free' as 'free' | 'rewarded',
+  adUnavailable: 'free' as 'free' | 'retry'
 };

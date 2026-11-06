@@ -234,7 +234,7 @@ export default class ElectronicPage extends Vue {
     this.loading = true;
     let path = '';
     try {
-      if (!await adManager.show()) return;
+      if (!await adManager.show('electronic:' + photo.id)) return;
       this.processing = true;
       path = await writeTemporaryImage(photo.hdBase64, 'electronic');
       await new Promise<void>((resolve, reject) => uni.saveImageToPhotosAlbum({

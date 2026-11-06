@@ -58,7 +58,7 @@
       </view>
       <view class="btn-primary" @click="saveImage">
         <view class="btn-icon"><u-icon name="download" size="19" color="#ffffff" /></view>
-        <text>保存图片</text>
+        <text>{{ saveLabel }}</text>
       </view>
     </view>
 
@@ -90,13 +90,14 @@ export default class MattingResult extends Vue {
   onUnload() { removeTemporaryImage(this.imagePath); }
   retake() { uni.navigateBack(); }
 
+  get saveLabel() { return adManager.label(); }
   async saveImage() {
     if (this.saving) return;
     this.saving = true;
     let temporary = '';
     try {
       if (!this.imagePath) throw new Error('图片已失效，请重新制作');
-      if (!await adManager.show()) return;
+      if (!await adManager.show(this.imagePath)) return;
       this.processing = true;
       const path = this.imagePath.startsWith('data:image/')
         ? (temporary = await writeTemporaryImage(this.imagePath, 'matting')) : this.imagePath;

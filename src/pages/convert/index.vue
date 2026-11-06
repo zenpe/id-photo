@@ -13,7 +13,7 @@
     <view class="card"><view class="title">图片格式</view><view class="tabs"><view :class="{ active: outputFormat === 'jpg' }" @click="setFormat('jpg')">JPG</view><view :class="{ active: outputFormat === 'png' }" @click="setFormat('png')">PNG</view></view><view class="hint">{{ outputFormat === 'png' ? 'PNG 保留透明背景，文件大小取决于图片内容。' : 'JPG 会将透明背景转换为白色。' }}</view></view>
     <view class="card"><view class="title">目标大小</view><picker :range="targetLabels" :value="targetIndex" @change="onTargetChange"><view class="picker"><text>{{ targetLabels[targetIndex] }}</text><u-icon name="arrow-down" size="16" color="#666b73" /></view></picker><view v-if="targetIndex" class="hint">转换时尽量控制在目标大小内，实际结果可能受图片内容影响。</view></view>
     <view v-if="resultPath" class="card"><view class="title">转换结果</view><view class="result-row"><text>图片大小</text><text>{{ sizeText }}</text></view><view class="result-row"><text>图片尺寸</text><text>{{ width }}×{{ height }} px</text></view><view v-if="!targetMet" class="warning">当前图片无法达到目标大小，可尝试调整目标或更换格式。</view></view>
-    <view class="bottom"><view v-if="resultPath" class="save-hint">{{ memberState === 'member' ? '会员免广告保存' : memberState === 'ordinary' ? '观看完整广告后保存' : '保存前将确认会员状态' }}</view><view class="primary-button" :class="{ disabled: busy || !sourcePath }" @click="onAction">{{ busy ? '正在处理...' : resultPath ? '保存到相册' : '开始转换' }}</view></view>
+    <view class="bottom"><view v-if="resultPath" class="save-hint">{{ accessHint }}</view><view class="primary-button" :class="{ disabled: busy || !sourcePath }" @click="onAction">{{ busy ? '正在处理...' : resultPath ? saveLabel : '开始转换' }}</view></view>
     <PhotoCamera v-if="showCamera" title="拍摄照片" :guide-initially-enabled="false" initial-position="back"
       @close="showCamera = false" @select="onCameraSelect" />
     <LoadingOverlay :show="processing" :text="saving ? '正在保存图片' : '正在转换图片'" :tip="saving ? '请稍候，正在保存到相册' : '正在处理图片格式与大小，请稍候'" />
@@ -30,7 +30,9 @@ import PhotoCamera from '@/components/PhotoCamera.vue';
   width=0; height=0; sizeBytes=0; targetMet=true; memberState:'member'|'ordinary'|'unknown'='unknown';
   get displayPath(){ return this.resultPath || this.sourcePath; }
   get sizeText(){ return this.sizeBytes >= 1024*1024 ? (this.sizeBytes/1024/1024).toFixed(2)+' MB' : (this.sizeBytes/1024).toFixed(1)+' KB'; }
-  onShow(){ this.refreshMembership(); }
+  get accessHint(){ return adManager.hint(this.memberState==='member'); }
+  get saveLabel(){ return adManager.label(this.memberState==='member'); }
+  onShow(){ if(adManager.requiresAd)this.refreshMembership(); }
   onUnload(){ removeTemporaryImage(this.resultPath); }
   async refreshMembership(){ try{this.memberState=(await getMembershipStatus()).active?'member':'ordinary';}catch(_){this.memberState='unknown';} }
   clearResult(){ removeTemporaryImage(this.resultPath); this.resultPath=''; this.rewarded=false; }
@@ -46,7 +48,7 @@ import PhotoCamera from '@/components/PhotoCamera.vue';
   onTargetChange(event:any){ if(this.busy)return; this.targetIndex=Number(event.detail.value); this.clearResult(); }
   async onAction(){ if(this.busy||!this.sourcePath)return; if(this.resultPath)await this.save(); else await this.convert(); }
   async convert(){ this.busy=true; this.processing=true; try{const result:any=await uploadFile('/convert_image','input_image',this.sourcePath,{data:{output_format:this.outputFormat,target_kb:this.targetValues[this.targetIndex]}});if(!result.image_base64)throw new Error('服务器未返回图片');this.resultPath=await writeTemporaryImage(result.image_base64,'convert');this.width=result.width;this.height=result.height;this.sizeBytes=result.size_bytes;this.targetMet=result.target_met;}catch(error:any){uni.showModal({title:'转换失败',content:error.message||'请稍后重试',showCancel:false});}finally{this.processing=false;this.busy=false;} }
-  async save(){ this.busy=true; try{if(!this.rewarded){const access=await adManager.authorize();if(!access)return;this.memberState=access==='member'?'member':'ordinary';this.rewarded=access==='ad';}this.saving=true;this.processing=true;await new Promise<void>((resolve,reject)=>uni.saveImageToPhotosAlbum({filePath:this.resultPath,success:()=>resolve(),fail:()=>reject(new Error('保存失败，请检查相册权限'))}));this.rewarded=false;uni.showToast({title:'保存成功',icon:'success'});}catch(error:any){uni.showModal({title:'保存失败',content:error.message||'请稍后重试',showCancel:false});}finally{this.processing=false;this.saving=false;this.busy=false;} }
+  async save(){ this.busy=true; try{{const access=await adManager.authorize(this.sourcePath);if(!access)return;this.memberState=access==='member'?'member':'ordinary';}this.saving=true;this.processing=true;await new Promise<void>((resolve,reject)=>uni.saveImageToPhotosAlbum({filePath:this.resultPath,success:()=>resolve(),fail:()=>reject(new Error('保存失败，请检查相册权限'))}));uni.showToast({title:'保存成功',icon:'success'});}catch(error:any){uni.showModal({title:'保存失败',content:error.message||'请稍后重试',showCancel:false});}finally{this.processing=false;this.saving=false;this.busy=false;} }
 }
 </script>
 <style lang="scss" scoped>

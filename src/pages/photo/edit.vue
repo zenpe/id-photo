@@ -65,16 +65,15 @@ export default class PhotoEdit extends Vue {
   isHd = true; saveToElectronic = false; busy = false; processing = false; cropLine = false;
   outputMode = 'photo'; showMoreColors = false; settingsExpanded = false; paperIndex = 0;
   actualDimensions = ''; memberState: 'member' | 'ordinary' | 'unknown' = 'unknown';
-  rewardedKey = '';
   papers = [{ label: '六寸 (4R)', value: '4r' }, { label: '五寸 (3R)', value: '3r' }, { label: 'A4', value: 'a4' }];
   get visibleColors() { return this.showMoreColors ? colors : colors.slice(0, 3); }
   get currentPath() { if (!this.photoPath) return ''; return this.isHd && this.photoPath.base64HDPath ? this.photoPath.base64HDPath : this.photoPath.base64Path; }
   get previewWidth(): number { const ratio = this.photoSize.pxWidth / this.photoSize.pxHeight; return Math.round(Math.min(560, 650 * ratio)); }
   get previewHeight(): number { const ratio = this.photoSize.pxWidth / this.photoSize.pxHeight; return Math.round(Math.min(650, 560 / ratio)); }
-  get accessHint() { return this.memberState === 'member' ? '会员免广告保存' : this.memberState === 'ordinary' ? '观看完整广告后保存' : '保存前将确认会员状态'; }
-  get saveButtonText() { return (this.memberState === 'member' ? '直接保存' : '保存') + (this.outputMode === 'layout' ? '排版照' : '电子照'); }
+  get accessHint() { return adManager.hint(this.memberState === 'member'); }
+  get saveButtonText() { return (adManager.label(this.memberState === 'member') + ' · ') + (this.outputMode === 'layout' ? '排版照' : '电子照'); }
   get saveKey() { return JSON.stringify([this.currentPath, this.IDPhotoForm.color, this.outputMode, this.paperIndex, this.cropLine]); }
-  onShow() { this.refreshDimensions(); this.refreshMembership(); }
+  onShow() { this.refreshDimensions(); if (adManager.requiresAd) this.refreshMembership(); }
   onUnload() {
     if (this.photoPath) { removeTemporaryImage(this.photoPath.base64Path); removeTemporaryImage(this.photoPath.base64HDPath); }
     this.setPhotoPath({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
@@ -97,11 +96,10 @@ export default class PhotoEdit extends Vue {
     try {
       const imagePath = this.currentPath;
       if (!imagePath) throw new Error('图片路径无效，请重新制作');
-      if (this.rewardedKey !== key) {
-        const access = await adManager.authorize();
+      {
+        const access = await adManager.authorize(this.photoPath.base64Path);
         if (!access) return;
         this.memberState = access === 'member' ? 'member' : 'ordinary';
-        if (access === 'ad') this.rewardedKey = key;
       }
       this.processing = true;
       const dpi = this.photoSize.dpi || 300;
@@ -119,7 +117,6 @@ export default class PhotoEdit extends Vue {
       } else resultPath = colorPath;
       this.processing = false;
       await new Promise<void>((resolve, reject) => uni.saveImageToPhotosAlbum({ filePath: resultPath, success: () => resolve(), fail: (err: any) => reject(new Error(err.errMsg && err.errMsg.indexOf('cancel') >= 0 ? '已取消保存' : '保存失败，请检查相册权限')) }));
-      this.rewardedKey = '';
       try { StorageManager.recordPhotoCreated(); } catch (_) { /* statistics are optional */ }
       if (!layout && this.saveToElectronic) this.saveToElectronicPhoto(output);
       else uni.showToast({ title: '保存成功', icon: 'success' });
