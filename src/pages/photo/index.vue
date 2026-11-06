@@ -85,15 +85,15 @@ export default class PhotoIndex extends Vue {
   form: any = {
     height: 0,
     width: 0,
-    human_matting_model: "birefnet-v1-lite",
+    human_matting_model: "hivision_modnet",
     face_detect_model: "mtcnn",
     face_align: false,
     horizontal_flip: false,
     whitening_strength: 0
   }
   models = [
-    { label: '增强版', value: 'birefnet-v1-lite' },
     { label: '标准版', value: 'hivision_modnet' },
+    { label: '增强版', value: 'birefnet-v1-lite' },
     { label: '人像版', value: 'modnet_photographic_portrait_matting' }
   ]
   settingsExpanded: boolean = false

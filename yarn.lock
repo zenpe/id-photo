@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@achrinza/node-ipc@^9.2.5":
-  version "9.2.9"
-  resolved "https://registry.npmmirror.com/@achrinza/node-ipc/-/node-ipc-9.2.9.tgz#ab4815d9b16f1c83a479fe8791522a3abebb1c6a"
-  integrity sha512-7s0VcTwiK/0tNOVdSX9FWMeFdOEcsAOz9HesBldXxFMaGvIak7KC2z9tV9EgsQXn6KUsWsfIkViMNuIo0GoZDQ==
+"@achrinza/node-ipc@9.2.10", "@achrinza/node-ipc@^9.2.5":
+  version "9.2.10"
+  resolved "https://registry.npmmirror.com/@achrinza/node-ipc/-/node-ipc-9.2.10.tgz#aa17def30e134e8c0a8738ffc13e50c08a753ff0"
+  integrity sha512-rCkw57K82y1XA9KwBmuMrupFQr9VOS4Rn77vW2UD2j0+HjlP/npSON9COkUIfocd95B4wv5EpfWMr6lGD4lN3A==
   dependencies:
     "@node-ipc/js-queue" "2.0.3"
     event-pubsub "4.3.0"
@@ -32,7 +32,7 @@
   resolved "https://registry.npmmirror.com/@babel/compat-data/-/compat-data-7.25.4.tgz#7d2a80ce229890edcf4cc259d4d696cb4dae2fcb"
   integrity sha512-+LGRog6RAsCJrrrg/IO6LGmpphNe5DiK30dGjCoxxeGv49B10/3XYGxPsAwrDlMFcFEvdAUavDT8r9k/hSyQqQ==
 
-"@babel/core@^7.1.0", "@babel/core@^7.12.16", "@babel/core@^7.12.3", "@babel/core@^7.7.5":
+"@babel/core@7.25.2", "@babel/core@^7.1.0", "@babel/core@^7.12.16", "@babel/core@^7.12.3", "@babel/core@^7.7.5":
   version "7.25.2"
   resolved "https://registry.npmmirror.com/@babel/core/-/core-7.25.2.tgz#ed8eec275118d7613e77a352894cd12ded8eba77"
   integrity sha512-BBt3opiCOxUr9euZ5/ro/Xv8/V7yJ5bjYMqG/C1YAo8MIKAnumZalCN+msbci3Pigy4lIQfPUpfMM27HMGaYEA==
@@ -3519,7 +3519,7 @@ copy-text-to-clipboard@^3.0.1:
   resolved "https://registry.npmmirror.com/copy-text-to-clipboard/-/copy-text-to-clipboard-3.2.0.tgz#0202b2d9bdae30a49a53f898626dcc3b49ad960b"
   integrity sha512-RnJFp1XR/LOBDckxTib5Qjr/PMfkatD0MUCQgdpqS8MdKiNUzBjAQBEN6oUy+jW7LI93BBG3DtMB2KOOKpGs2Q==
 
-copy-webpack-plugin@^9.0.1:
+copy-webpack-plugin@9.1.0, copy-webpack-plugin@^9.0.1:
   version "9.1.0"
   resolved "https://registry.npmmirror.com/copy-webpack-plugin/-/copy-webpack-plugin-9.1.0.tgz#2d2c460c4c4695ec0a58afb2801a1205256c4e6b"
   integrity sha512-rxnR7PaGigJzhqETHGmAcxKnLZSR5u1Y3/bcIv/1FnqXedcL/E2ewK7ZCNrArJKCiSv8yVXhTqetJh8inDvfsA==
@@ -7316,7 +7316,7 @@ postcss@^7.0.1, postcss@^7.0.36:
     picocolors "^0.2.1"
     source-map "^0.6.1"
 
-postcss@^8.2.6, postcss@^8.3.5, postcss@^8.4.33, postcss@^8.4.44:
+postcss@8.4.45, postcss@^8.2.6, postcss@^8.3.5, postcss@^8.4.33, postcss@^8.4.44:
   version "8.4.45"
   resolved "https://registry.npmmirror.com/postcss/-/postcss-8.4.45.tgz#538d13d89a16ef71edbf75d895284ae06b79e603"
   integrity sha512-7KTLTdzdZZYscUc65XmjFiB73vBhBfbPztCYdUNvlaso9PrzjzcmjqBPR0lNGkcVlcO4BjiO5rK/qNz+XAen1Q==
@@ -9149,7 +9149,7 @@ webpack-virtual-modules@^0.4.2:
   resolved "https://registry.npmmirror.com/webpack-virtual-modules/-/webpack-virtual-modules-0.4.6.tgz#3e4008230731f1db078d9cb6f68baf8571182b45"
   integrity sha512-5tyDlKLqPfMqjT3Q9TAqf2YqjwmnUleZwzJi1A5qXnlBCdj2AtOJ6wAWdglTIDOPgOiOrXeBeFcsQ8+aGQ6QbA==
 
-webpack@^5.54.0:
+webpack@5.94.0, webpack@^5.54.0:
   version "5.94.0"
   resolved "https://registry.npmmirror.com/webpack/-/webpack-5.94.0.tgz#77a6089c716e7ab90c1c67574a28da518a20970f"
   integrity sha512-KcsGn50VT+06JH/iunZJedYGUJS5FGjow8wb9c0v5n1Om8O1g4L6LjtfxwlXIATopoQu+vOXXa7gYisWxCoPyg==

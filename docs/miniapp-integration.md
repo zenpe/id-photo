@@ -9,11 +9,13 @@
 
 ## 启动小程序
 
-项目使用 Vue 2 和 uni-app。使用 Node.js 20：
+项目使用 Vue 2 和 uni-app，前端工具链使用 Node.js 24.x、Yarn Classic 1.22.22：
 
 ```sh
-cd /Users/qiqi/id-photo
-PATH="/Users/qiqi/.npm/_npx/ebaba8b9e55fd0a9/node_modules/node/bin:$PATH" yarn dev:mp-weixin
+cd /path/to/id-photo
+npm install --global yarn@1.22.22
+yarn install --frozen-lockfile
+yarn dev:mp-weixin
 ```
 
 在微信开发者工具中导入 `/Users/qiqi/id-photo/dist/dev/mp-weixin`。正式构建使用 `yarn build:mp-weixin`，输出到 `dist/build/mp-weixin`。编译成功不等于真机广告或登录验证成功。

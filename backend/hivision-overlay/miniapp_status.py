@@ -138,8 +138,8 @@ def payment_check(database_ready, recent):
 
 def status_snapshot(sandbox=False):
     recent = failures.groups()
-    model_ready = Path(WEIGHTS['birefnet-v1-lite']).is_file()
-    matting_ready = Path(WEIGHTS['modnet_photographic_portrait_matting']).is_file()
+    model_ready = Path(WEIGHTS['hivision_modnet']).is_file()
+    matting_ready = Path(WEIGHTS['hivision_modnet']).is_file()
     optional_models_ready = all(Path(WEIGHTS[name]).is_file() for name in ('birefnet-v1-lite', 'hivision_modnet', 'modnet_photographic_portrait_matting'))
     database_ready = membership_database_ready()
     payment_state, payment_detail = payment_check(database_ready, recent)

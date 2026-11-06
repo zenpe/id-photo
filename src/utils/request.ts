@@ -98,9 +98,10 @@ export const uploadFile = async <T>(
     const value = options.data[key];
     if (value !== undefined && value !== null) formData[key] = String(value);
   });
+  const targetUrl = baseUrl + (options.gateway || '') + url;
   return withLoginRetry(() => new Promise<T>((resolve, reject) => {
     uni.uploadFile({
-      url: baseUrl + (options.gateway || '') + url,
+      url: targetUrl,
       filePath: path,
       name,
       formData,
@@ -109,9 +110,20 @@ export const uploadFile = async <T>(
       success: ({ data, statusCode }: any) => {
         if (Number(statusCode) === 401) { reject(unauthorized()); return; }
         try { resolve(checkResponse<T>(Number(statusCode), data)); }
-        catch (error) { reject(error); }
+        catch (error) {
+          console.error('[uploadFile] 响应处理失败', { url: targetUrl, statusCode: Number(statusCode) });
+          reject(error);
+        }
       },
-      fail: () => reject(new Error('图片上传失败，请检查网络后重试'))
+      fail: (result: any) => {
+        // Keep WeChat's transport error for diagnosis without logging images or credentials.
+        const details = { url: targetUrl, errMsg: result?.errMsg || '', errCode: result?.errCode };
+        console.error('[uploadFile] 上传失败', details);
+        const error: any = new Error('图片上传失败，请检查网络后重试');
+        error.errMsg = details.errMsg;
+        error.errCode = details.errCode;
+        reject(error);
+      }
     });
   }), true);
 };

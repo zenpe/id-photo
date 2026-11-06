@@ -92,7 +92,7 @@
 
 ### 环境要求
 
-- Node.js 和 npm 或 Yarn
+- Node.js 24.x 和 Yarn Classic 1.22.22（前端安装使用仓库的 `yarn.lock`）
 - Python 3.10–3.13
 - 微信开发者工具及可用的小程序 AppID
 - 微信小程序服务端凭据；如需会员支付，还需完成微信虚拟支付、商品和消息推送配置
@@ -100,12 +100,16 @@
 ### 1. 获取代码并安装前端依赖
 
 ```bash
-git clone https://github.com/qiqichaoiwan/id-photo.git
+git clone https://github.com/zenpe/id-photo.git
 cd id-photo
-yarn install
+npm install --global yarn@1.22.22
+yarn install --frozen-lockfile
 ```
 
-也可使用 `npm install` 安装前端依赖。
+请使用 Yarn 安装依赖，避免 npm 对旧版 Vue CLI 可选 peer dependencies 重新解析造成
+Webpack 4/5 冲突。Node 24 所需的 `@achrinza/node-ipc` 已固定为支持该版本的 9.2.10，
+不需要 `--ignore-engines`、`--legacy-peer-deps` 或 `--force`。构建命令仍可通过 npm 运行。
+`.node-version` 供 fnm 等版本管理工具读取；Windows/Linux 构建由 GitHub Actions 检查。
 
 ### 2. 配置并启动后端
 

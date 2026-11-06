@@ -244,7 +244,7 @@ async def idphoto_inference(
     input_image_base64: str = Form(None),
     height: int = Form(413, ge=1, le=2000),
     width: int = Form(295, ge=1, le=2000),
-    human_matting_model: str = Form("birefnet-v1-lite"),
+    human_matting_model: str = Form("hivision_modnet"),
     face_detect_model: str = Form("mtcnn"),
     hd: bool = Form(True),
     dpi: int = Form(300, ge=72, le=600),
@@ -365,7 +365,7 @@ async def convert_image(
 async def human_matting_inference(
     input_image: UploadFile = File(None),
     input_image_base64: str = Form(None),
-    human_matting_model: str = Form("birefnet-v1-lite"),
+    human_matting_model: str = Form("hivision_modnet"),
     dpi: int = Form(300, ge=72, le=600),
 ):
     img = await read_image(input_image, input_image_base64, cv2.IMREAD_COLOR)

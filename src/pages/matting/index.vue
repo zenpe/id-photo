@@ -233,7 +233,7 @@ export default class MattingPage extends Vue {
   showCamera: boolean = false;
   
   // 抠图设置 - 默认选择 150 DPI 作为打印尺寸标记
-  selectedModel: string = 'modnet_photographic_portrait_matting';
+  selectedModel: string = 'hivision_modnet';
   dpi: number = 150;
   
   // 抠图处理方式选项
