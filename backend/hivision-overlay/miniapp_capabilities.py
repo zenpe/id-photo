@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from fastapi import APIRouter
 from starlette.responses import JSONResponse
 
@@ -18,7 +19,7 @@ def capabilities():
     unit = os.environ.get('IDPHOTO_REWARDED_AD_UNIT_ID', '').strip()
     if mode not in ('free', 'rewarded'):
         raise RuntimeError('IDPHOTO_SAVE_MODE must be free or rewarded')
-    if mode == 'rewarded' and not unit.startswith('adunit-'):
+    if mode == 'rewarded' and not re.fullmatch(r'adunit-[a-zA-Z0-9]+', unit):
         raise RuntimeError('rewarded saving requires IDPHOTO_REWARDED_AD_UNIT_ID')
     fallback = os.environ.get('IDPHOTO_AD_UNAVAILABLE', 'free')
     if fallback not in ('free', 'retry'):

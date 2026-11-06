@@ -18,7 +18,7 @@
           </view>
           <view class="section-block">
             <text class="section-title">内容安全识别</text>
-            <text class="section-content">为遵守平台内容安全要求，上传的照片会在处理前调用微信公众平台内容安全接口进行识别。原始照片只用于本次检查和照片处理，服务端不保存原图；仅保留检测时间、文件摘要、错误码和检测编号等必要的审计信息。</text>
+            <text class="section-content">为遵守平台内容安全要求，上传的照片会在处理前调用微信公众平台内容安全接口进行识别。原始照片只用于本次检查和照片处理，服务端不保存原图；仅保留检测时间、文件摘要、内部账户标识、错误码和检测编号等必要的审计信息。该审计文件按大小轮换保留，最多约 15 MB，不承诺按固定天数删除。匿名接口调用统计最多保留 30 天，在后续请求时清理。您可通过运营方联系渠道申请核实和删除与您关联的信息。</text>
           </view>
           <view class="section-block">
             <text class="section-title">本地保存</text>

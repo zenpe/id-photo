@@ -24,6 +24,7 @@ class DeploymentTests(unittest.TestCase):
     def test_api_default_policy_and_async_guard(self):
         with TestClient(deploy_api.app) as client:
             self.assertEqual(client.get('/health').status_code,200)
+            self.assertEqual(client.get('/health').headers['cache-control'],'no-store')
             response=client.get('/capabilities')
             self.assertEqual(response.headers['cache-control'],'no-store')
             self.assertEqual(response.json()['saveMode'],'free')

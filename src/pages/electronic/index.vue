@@ -15,6 +15,7 @@
 
     <!-- 主要内容区域 -->
     <scroll-view class="content-scroll" scroll-y="true">
+      <view v-if="photos.length" class="save-policy">{{ saveHint }}</view>
       <!-- 统计信息卡片 -->
       <view class="stats-card" v-if="photos.length > 0">
         <view class="stats-grid">
@@ -59,7 +60,7 @@
             <view class="photo-header">
               <text class="photo-name">{{ photo.name }}</text>
               <view class="photo-actions">
-                <view class="action-btn" @click.stop="downloadPhoto(photo)">
+                <view class="action-btn" :aria-label="saveHint" @click.stop="downloadPhoto(photo)">
                   <u-icon name="download" size="16" color="#cc3d35" />
                 </view>
                 <view class="action-btn delete" @click.stop="deletePhoto(photo.id)">
@@ -130,6 +131,7 @@ declare const wx: any;
 
 @Component({ components: { LoadingOverlay, InlineState } })
 export default class ElectronicPage extends Vue {
+  get saveHint(){ return adManager.hint(); }
   // 确保管理器在组件中可用
   electronicPhotoManager = ElectronicPhotoManager;
   // 按钮样式

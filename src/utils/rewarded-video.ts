@@ -9,7 +9,6 @@ export async function watchRewardedVideo(unitId: string): Promise<VideoResult> {
   try { ad = wx.createRewardedVideoAd({ adUnitId: unitId }); } catch (_) { return 'unavailable'; }
   return new Promise<VideoResult>((resolve) => {
     let settled = false;
-    let attempting = true;
     const timer = setTimeout(() => finish('unavailable'), 180000);
     const finish = (result: VideoResult) => {
       if (settled) return;
@@ -21,14 +20,14 @@ export async function watchRewardedVideo(unitId: string): Promise<VideoResult> {
       resolve(result);
     };
     const onClose = (result: any) => finish(result && result.isEnded === true ? 'completed' : 'cancelled');
-    const onError = () => { if (!attempting) finish('unavailable'); };
+    const onError = () => finish('unavailable');
     try {
       ad.onClose(onClose);
       if (ad.onError) ad.onError(onError);
       Promise.resolve().then(() => ad.show()).catch(() => {
         if (settled) return;
         return Promise.resolve().then(() => ad.load()).then(() => { if (!settled) return ad.show(); });
-      }).then(() => { attempting = false; }).catch(() => finish('unavailable'));
+      }).catch(() => finish('unavailable'));
     } catch (_) { finish('unavailable'); }
   });
   // #endif

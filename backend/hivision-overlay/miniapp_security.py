@@ -187,6 +187,14 @@ class SecurityMiddleware:
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
+        downstream_send = send
+        async def no_store_send(message):
+            if message['type'] == 'http.response.start':
+                message = dict(message)
+                message['headers'] = [(key, value) for key, value in message.get('headers', []) if key.lower() != b'cache-control']
+                message['headers'].append((b'cache-control', b'no-store'))
+            await downstream_send(message)
+        send = no_store_send
         headers = {k.lower(): v for k, v in scope.get('headers', [])}
         path = scope['path']
         client = scope.get('client')

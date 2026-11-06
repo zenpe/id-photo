@@ -31,6 +31,8 @@ jobs:
         run: yarn install --frozen-lockfile
       - name: Run flow regressions
         run: yarn test:node24
+      - name: Use public CI AppID fixture
+        run: node -e "const fs=require('fs');const p='src/manifest.json';const m=JSON.parse(fs.readFileSync(p,'utf8'));m['mp-weixin'].appid='wx0000000000000000';fs.writeFileSync(p,JSON.stringify(m));"
       - name: Build WeChat mini-program
         run: yarn build:mp-weixin
       - name: Build H5

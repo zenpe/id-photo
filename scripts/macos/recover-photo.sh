@@ -2,12 +2,15 @@
 # 一键恢复“小七快照拍”本机服务和 Cloudflare Tunnel。
 #
 # 只重启已经配置好的 LaunchAgent，不修改密钥、会员数据库或 Tunnel 配置。
-# 可通过 IDPHOTO_ROOT 覆盖线上后端目录；当前设备默认使用
-# /Users/qiqi/HivisionIDPhotos。
+# 必须显式提供 IDPHOTO_ROOT；仅适用于已安装旧 LaunchAgent 的 macOS。
 set -u
+if [ "$(uname -s)" != Darwin ]; then
+  printf "%s\n" "This archived recovery script is macOS-only; use Docker Compose on fnOS." >&2
+  exit 2
+fi
 
-IDPHOTO_ROOT=${IDPHOTO_ROOT:-/Users/qiqi/HivisionIDPhotos}
-CLOUDFLARED_CONFIG=${CLOUDFLARED_CONFIG:-/Users/qiqi/.cloudflared/config.yml}
+IDPHOTO_ROOT=${IDPHOTO_ROOT:-}
+CLOUDFLARED_CONFIG=${CLOUDFLARED_CONFIG:-"$HOME/.cloudflared/config.yml"}
 LAUNCH_AGENTS=${LAUNCH_AGENTS:-"$HOME/Library/LaunchAgents"}
 USER_ID=$(id -u)
 CHECK_ONLY=0
@@ -15,13 +18,13 @@ TIMEOUT_SECONDS=${IDPHOTO_RECOVERY_TIMEOUT:-30}
 
 usage() {
   cat <<'EOF'
-用法：recover_xiaoqi_photo.sh [--check]
+用法：recover-photo.sh [--check]
 
 默认：检查配置后，重启图片 API、支付推送、沙箱、会员后台及两个照片 Cloudflare Tunnel，最后检查本机和公网入口。
 --check：只检查，不重启任何服务。
 
 可选环境变量：
-  IDPHOTO_ROOT             后端目录，默认 /Users/qiqi/HivisionIDPhotos
+  IDPHOTO_ROOT             已配置的旧版后端目录（必填）
   CLOUDFLARED_CONFIG       Tunnel 配置文件
   IDPHOTO_RECOVERY_TIMEOUT 单个服务等待秒数，默认 30
 EOF
@@ -35,6 +38,11 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ -z "$IDPHOTO_ROOT" ]; then
+  printf "%s\n" "Set IDPHOTO_ROOT to the configured legacy backend directory." >&2
+  exit 2
+fi
 
 failures=0
 info() { printf '[小七快照拍] %s\n' "$*"; }
@@ -185,13 +193,10 @@ check_port '支付推送服务' 8092
 check_port '沙箱服务' 8093
 check_http '会员后台认证入口' 'http://127.0.0.1:8091/' 401
 
-check_http '公网图片 API' 'https://photo.ruize.eu.org/health' 200
-check_http '公网服务状态' 'https://photo.ruize.eu.org/service-status' 200
-admin_status=$(http_status 'https://idphoto-admin.ruize.eu.org/')
-case "$admin_status" in
-  200|302|403) info "公网管理后台：HTTP ${admin_status}（Access/后台认证正常）" ;;
-  *) warn "公网管理后台：HTTP ${admin_status}（预期 200、302 或 403）" ;;
-esac
+if [ -n "${IDPHOTO_PUBLIC_URL:-}" ]; then
+  check_http '公网图片 API' "${IDPHOTO_PUBLIC_URL%/}/health" 200
+  check_http '公网服务状态' "${IDPHOTO_PUBLIC_URL%/}/service-status" 200
+fi
 
 if [ "$failures" -eq 0 ]; then
   info '恢复完成，所有检查通过。'

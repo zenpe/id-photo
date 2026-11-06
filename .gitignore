@@ -22,3 +22,8 @@ unpackage/
 *.sqlite3-wal
 *.sqlite3-shm
 backend/**/admin.json
+
+# Python bytecode and local dependency resolution reports
+__pycache__/
+*.pyc
+requirements.resolved.txt

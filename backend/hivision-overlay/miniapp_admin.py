@@ -305,16 +305,22 @@ def probe_service(url, failure_note):
 
 def fetch_service_status():
     """Probe the running API and public tunnel, never this process's memory."""
-    local = probe_service('http://127.0.0.1:8080/service-status', '本机照片服务未响应；无法判断是服务故障还是连接问题。')
-    public = probe_service('https://photo.ruize.eu.org/service-status', '本机无法通过公网连接，可能与本机网络、隧道或服务有关。')
+    local = probe_service(os.environ.get('IDPHOTO_API_LOCAL_URL', 'http://127.0.0.1:8080').rstrip('/') + '/service-status', '本机照片服务未响应；无法判断是服务故障还是连接问题。')
+    public_url = os.environ.get('IDPHOTO_PUBLIC_API_URL', '').strip().rstrip('/')
+    public = probe_service(public_url + '/service-status', '本机无法通过公网连接，可能与本机网络、代理或服务有关。') if public_url else {
+        'reachable': False, 'status': 'disabled', 'checked_at': '', 'note': '未配置公网探测地址'}
     local['public'] = {key: public[key] for key in ('reachable', 'status', 'checked_at', 'note')}
+    push_enabled = os.environ.get('IDPHOTO_PUSH_ENABLED', 'false').lower() == 'true'
     try:
-        with socket.create_connection(('127.0.0.1', 8092), timeout=0.5):
-            push = {'id': 'push', 'name': '支付消息推送', 'state': 'ok', 'detail': '本机接收端口正在监听；未验证微信消息能否送达。'}
-    except OSError:
+        if not push_enabled:
+            push = {'id': 'push', 'name': '消息推送', 'state': 'disabled', 'detail': '未启用可选消息推送'}
+        else:
+            with socket.create_connection(('127.0.0.1', int(os.environ.get('IDPHOTO_PUSH_PORT', '8092'))), timeout=0.5):
+                push = {'id': 'push', 'name': '支付消息推送', 'state': 'ok', 'detail': '本机接收端口正在监听；未验证微信消息能否送达。'}
+    except (OSError, ValueError):
         push = {'id': 'push', 'name': '支付消息推送', 'state': 'unavailable', 'detail': '本机接收端口未响应；微信订单消息可能无法送达。'}
     local['checks'].append(push)
-    if local['reachable'] and (not public['reachable'] or public['status'] != 'ok' or push['state'] != 'ok'):
+    if local['reachable'] and ((public_url and (not public['reachable'] or public['status'] != 'ok')) or (push_enabled and push['state'] != 'ok')):
         local['status'] = 'degraded'
     return local
 

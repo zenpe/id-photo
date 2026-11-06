@@ -28,7 +28,7 @@ function getEnvironment(): string {
 export const env = getEnvironment();
 export const baseUrl = baseApi[env].host.replace(/\/$/, '');
 
-// Set VUE_APP_REWARDED_VIDEO_AD_UNIT_ID in .env.local before building.
+// Operational policy is public, fetched from the explicitly configured backend.
 export const adConfig = Vue.observable({
   rewardedVideoAdUnitId: '',
   saveMode: 'free' as 'free' | 'rewarded',

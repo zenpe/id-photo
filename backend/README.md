@@ -1,3 +1,5 @@
+> fnOS / N100 当前推荐入口：[单镜像可选服务部署](../docs/deploy-fnos.md)。以下原生脚本与 Cloudflare 配置是另一套兼容部署，不能直接当成 fnOS 已完成配置。API 不再安装 Gradio，若使用原演示，请先在后端虚拟环境安装 `hivision-core/requirements-app.txt`。
+
 # 小七快照拍后端与管理后台
 
 本目录包含可独立部署的完整后端：HivisionIDPhotos 基础源码位于 `hivision-core/`，微信登录、会员、虚拟支付与消息推送、服务监控和会员管理后台位于 `hivision-overlay/`。下载本仓库后不需要再克隆 HivisionIDPhotos；运行 `./bootstrap.sh` 会创建 Python 环境、安装依赖并下载经过 SHA-256 校验的模型文件。
@@ -59,11 +61,11 @@ cd backend
 
 ## 一键恢复
 
-仓库根目录的 `scripts/recover_xiaoqi_photo.sh` 用于当前 Mac 的故障恢复。它会先校验后端配置和 Tunnel ingress，再重启图片 API、支付推送、会员后台、可选沙箱和两个照片 Cloudflare Tunnel，最后检查本机与公网健康入口。脚本不改写密钥、会员数据库或 Tunnel 配置：
+仓库根目录的 `scripts/macos/recover-photo.sh` 用于当前 Mac 的故障恢复。它会先校验后端配置和 Tunnel ingress，再重启图片 API、支付推送、会员后台、可选沙箱和两个照片 Cloudflare Tunnel，最后检查本机与公网健康入口。脚本不改写密钥、会员数据库或 Tunnel 配置：
 
 ```sh
-./scripts/recover_xiaoqi_photo.sh
-./scripts/recover_xiaoqi_photo.sh --check  # 只检查，不重启
+./scripts/macos/recover-photo.sh
+./scripts/macos/recover-photo.sh --check  # 只检查，不重启
 ```
 
 当前设备也安装了 `recover-xiaoqi-photo` 命令和桌面快捷方式。默认后端目录是 `/Users/qiqi/HivisionIDPhotos`；迁移到其他设备时可用 `IDPHOTO_ROOT`、`CLOUDFLARED_CONFIG` 覆盖路径。

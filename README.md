@@ -61,7 +61,7 @@
 
 ### 会员与支付
 
-- 普通用户按页面提示观看激励视频广告后保存；有效会员保存时免广告。
+- 默认正式免费保存，无需广告权限。广告及购买均须运营方显式开启；广告不可用推荐免费兜底。
 - 会员采用单次购买，不自动续费；有效期按自然月计算，未到期续费时长叠加。
 - 首次初始化的套餐示例为 **1 个月 ¥12、3 个月 ¥24、12 个月 ¥68**。套餐可在后台调整，实际价格和上架状态以购买页面为准。
 - 接入微信虚拟支付，提供订单查询、订单详情和退款申请入口；支付能力需要完成微信平台配置。iPhone 支付需满足微信及 Apple 的相关条件。
@@ -69,7 +69,7 @@
 ### 内容安全与服务状态
 
 - 内容安全默认开启：照片进入处理流程前调用微信图片内容安全接口，文字水印在渲染前进行文本检测。检测不通过或服务不可用时会停止相应处理。
-- **我的 → 服务状态**提供图片、文字和异步媒体检测演示。异步媒体接口先返回受理结果，最终判定通过微信消息推送回调接收。
+- **我的 → 服务状态**展示基础连接；审核演示默认隐藏。异步检测须另启推送、完成回调验收后开放。
 - 小程序和管理后台可查看照片服务、会员服务等运行状态。状态页展示基础配置与近期异常，并不代表第三方支付或每次图片处理一定成功。
 
 ## 管理后台
@@ -86,14 +86,14 @@
 
 后台可对符合条件的普通虚拟支付订单发起退款；Apple 内购退款按 Apple 的流程处理。经核实全额退款后，系统会回收该订单尚未使用的会员权益；部分退款及无法安全计算的情况需要人工核对。退款流程与部署注意事项见 [后端说明](backend/README.md#定位用户与处理退款申请)。
 
-默认本地后台地址为 `http://127.0.0.1:8091/`。如需公网访问，应配置 Cloudflare Tunnel、Cloudflare Access 和后台账号密码；当前部署与配置说明见 [后台公网访问](backend/README.md#后台公网访问)。
+默认本地后台地址为 `http://127.0.0.1:8091/`。如需公网访问，应配置 Cloudflare Tunnel、Cloudflare Access 和后台账号密码；历史原生部署见 [后台公网访问](backend/README.md#后台公网访问)；fnOS 推荐使用 [SSH 隧道后台访问](docs/deploy-fnos.md#可选管理后台)。
 
 ## 快速开始
 
 ### 环境要求
 
 - Node.js 24.x 和 Yarn Classic 1.22.22（前端安装使用仓库的 `yarn.lock`）
-- Python 3.10–3.13
+- fnOS / N100 推荐 Docker（镜像 Python 3.11）；前端构建不需要本地 Python
 - 微信开发者工具及可用的小程序 AppID
 - 微信小程序服务端凭据；如需会员支付，还需完成微信虚拟支付、商品和消息推送配置
 
@@ -113,16 +113,10 @@ Webpack 4/5 冲突。Node 24 所需的 `@achrinza/node-ipc` 已固定为支持�
 
 ### 2. 配置并启动后端
 
-```bash
-cd backend
-./bootstrap.sh
-./configure.sh
-./start-all.sh
-```
+fnOS / N100 按 [Docker 部署说明](docs/deploy-fnos.md) 操作。默认只启动一个 API，宿主机端口 8090，后台和消息回调按需启用。
+首次部署填入自有微信凭据和随机签名密钥，数据与配置放 NAS 持久化目录，不进入 Git 或镜像。
 
-`bootstrap.sh` 会创建 Python 环境、安装依赖并下载模型权重。`configure.sh` 交互式配置微信和后台所需的本机密钥。请不要将密钥、数据库或本地配置提交到仓库。`start-all.sh` 会占用当前终端；可另开终端继续配置前端，按 `Ctrl-C` 停止本次启动的服务。
-
-启动后默认提供图片 API（`127.0.0.1:8080`）、管理后台（`127.0.0.1:8091`）和微信消息推送服务（`127.0.0.1:8092`）。如需使用 HivisionIDPhotos 原有的 Gradio 界面，可运行 `./start-gradio.sh`。详细配置、支付沙箱和模型说明见 [backend/README.md](backend/README.md)。
+原生 Python/macOS 启动脚本留作兼容入口，详见 [后端说明](backend/README.md)，不是 Windows/fnOS 推荐安装方案。
 
 ### 3. 配置小程序
 
@@ -132,14 +126,16 @@ cd backend
 cp .env.example .env.local
 ```
 
-在 `.env.local` 中配置自己的服务域名和激励视频广告位 ID，例如：
+在 `.env.local` 中填写自己的公开配置（不要放 AppSecret），例如：
 
 ```dotenv
 VUE_APP_API_BASE_URL=https://your-api-domain.example
-VUE_APP_REWARDED_VIDEO_AD_UNIT_ID=adunit-your-id
+VUE_APP_BRAND_NAME=你的照片工具
+VUE_APP_OPERATOR=实际运营主体
+VUE_APP_CONTACT=实际客服邮箱或联系方式
 ```
 
-也可分别设置 `VUE_APP_API_DEVELOPMENT`、`VUE_APP_API_TRIAL`、`VUE_APP_API_RELEASE`。未设置时，项目使用 `src/config.ts` 中的默认域名。将 `src/manifest.json` 的 `mp-weixin.appid` 改为自己的 AppID，并在微信公众平台配置对应的合法服务器域名。
+也可分别设置 `VUE_APP_API_DEVELOPMENT`、`VUE_APP_API_TRIAL`、`VUE_APP_API_RELEASE`。缺项会阻止生产构建，不会回退到原作者服务器。广告由后端 `/capabilities` 配置，默认关闭。将 `src/manifest.json` 的 `mp-weixin.appid` 改为自己的 AppID，并在微信公众平台配置对应的合法服务器域名。
 
 ### 4. 开发与构建
 
@@ -216,3 +212,12 @@ id-photo/
 </table>
 
 </details>
+
+## 发布与验证范围
+
+本轮实现、每批 review 和待实机验收见 [实施记录](docs/rollout-review.md)。默认模型为标准版 Hivision MODNet。
+本地已验证 Node 24 的锁文件安装、微信构建与隔离流程；镜像构建、真实推理、微信回调及 NAS 备份恢复须在 CI/NAS 完成。
+`yarn test:node24` 运行不访问微信/支付/用户照片的回归；`tests/` 中依赖开发工具自动化的脚本为手动专项验收，不包含在此命令中。
+
+Vue 2 / uni-app 2 属于旧工具链，Node 24 补丁不等于框架升级。Vue 3 迁移、长任务队列另立迭代。
+手动调试资料在 `docs/debug/`，macOS 历史恢复脚本在 `scripts/macos/`，均不是 fnOS 启动入口。

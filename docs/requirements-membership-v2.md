@@ -1,3 +1,5 @@
+> 上游历史记录：其中域名、广告位、价格和验收结论不代表当前 Fork 的配置。当前部署以 [deploy-fnos.md](deploy-fnos.md) 和 [rollout-review.md](rollout-review.md) 为准。审核演示须显式启用诊断与异步检测开关。
+
 # 小七快照拍需求汇总 V2：会员套餐、虚拟支付与 UI
 
 日期：2026-10-30  

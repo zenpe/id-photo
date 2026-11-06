@@ -49,7 +49,7 @@
 <script lang="ts">
 import Vue from 'vue';
 import DraftResume from '@/components/DraftResume.vue';
-import { rememberDraft, TaskDraft } from '@/utils/task-draft';
+import { rememberDraft, TaskDraft, loadDraft } from '@/utils/task-draft';
 import { Component } from "vue-property-decorator";
 import { GeneratePhoto } from '@/api/photo'
 import { PhotoSize } from '@/model/PhotoSize'
@@ -189,7 +189,7 @@ export default class PhotoIndex extends Vue {
    */
 
   async keepDraft() { await rememberDraft('photo',{source:this.imagePath},{stage:'source',form:{...this.form},modelIndex:this.modelIndex,photoSize:this.photoSize}); }
-  onHide() { if(this.imagePath && !this.loading)this.keepDraft(); }
+  onHide() { if(this.imagePath && !this.loading && loadDraft('photo')?.state.stage!=='editing')this.keepDraft(); }
   restoreDraft(draft:TaskDraft) {
     if(draft.state.photoSize)this.$store.commit('SET_PHOTO_SIZE',draft.state.photoSize);
     if(draft.state.stage==='editing') {
