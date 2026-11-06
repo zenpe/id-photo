@@ -1,0 +1,34 @@
+name: id-photo
+
+services:
+  api:
+    image: id-photo-api:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ./backend/.env.docker
+    environment:
+      IDPHOTO_DATA_DIR: /data
+      IDPHOTO_AUTH_REQUIRED: "true"
+      IDPHOTO_CONTENT_SECURITY_ENABLED: "true"
+      IDPHOTO_PAYMENT_ENABLED: "false"
+      IDPHOTO_PAYMENT_ENV: "0"
+      IDPHOTO_TRUST_CLOUDFLARE: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/.miniapp_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; r = urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5); assert json.load(r)['status'] == 'ok'"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
