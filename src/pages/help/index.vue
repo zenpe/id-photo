@@ -6,7 +6,7 @@
               <u-icon name="integral-fill" size="28" color="#356caa" />
         </view>
         <text class="page-title">使用帮助</text>
-        <text class="subtitle">快速上手，小七快照拍助您制作专业证件照</text>
+        <text class="subtitle">快速上手，{{ $product.name }}助您制作专业证件照</text>
       </view>
 
       <scroll-view class="content-scroll" scroll-y="true">
@@ -240,7 +240,7 @@
               <view class="contact-item">
                 <u-icon name="email" size="20" color="#2196F3" />
                 <text class="contact-text">客服邮箱</text>
-                <text class="contact-email">761287561@qq.com</text>
+                <text class="contact-email">{{ $product.contact }}</text>
               </view>
             </view>
           </view>
@@ -325,7 +325,7 @@ export default class Help extends Vue {
    */
   onShareTimeline() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       query: '',
       imageUrl: '/static/example.jpeg'
     };
@@ -336,7 +336,7 @@ export default class Help extends Vue {
    */
   onShareAppMessage() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       path: '/pages/index/index',
       imageUrl: '/static/example.jpeg'
     };

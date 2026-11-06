@@ -8,7 +8,7 @@
     <view class="profile-card">
       <image class="avatar" src="/static/logo.png" mode="aspectFill" />
       <view class="profile-copy">
-        <view class="profile-name">小七快照拍</view>
+        <view class="profile-name">{{ $product.name }}</view>
         <view class="profile-id"><text>会员编号：</text><text v-if="memberRef" selectable>{{ memberRef }}</text><text v-else>{{ profileError ? '暂不可用' : '查询中…' }}</text></view>
         <button v-if="memberRef" class="profile-id-action" @click="copyMemberRef">复制编号</button>
         <button v-else-if="profileError" class="profile-id-action" @click="loadProfile">重新查询</button>
@@ -19,7 +19,7 @@
       </view>
     </view>
 
-    <view class="member-banner" role="button" @click="open('/pages/membership/index')">
+    <view v-if="purchaseEnabled || (memberStatus && memberStatus.active)" class="member-banner" role="button" @click="open('/pages/membership/index')">
       <view class="member-glow member-glow-one"></view><view class="member-glow member-glow-two"></view>
       <view class="member-top">
         <view class="member-icon"><u-icon name="gift-fill" size="25" color="#cc3d35" /></view>
@@ -31,7 +31,7 @@
 
     <view class="section-heading"><text>照片与会员</text><text class="section-subtitle">常用服务</text></view>
     <view class="menu">
-      <view v-for="item in personalItems" :key="item.key" class="menu-item" role="button" hover-class="menu-item-hover" @click="openItem(item)">
+      <view v-for="item in visiblePersonalItems" :key="item.key" class="menu-item" role="button" hover-class="menu-item-hover" @click="openItem(item)">
         <view class="menu-left"><view class="menu-icon" :class="item.tone"><u-icon :name="item.icon" size="20" :color="item.color" /></view><text class="menu-title">{{ item.label }}</text></view>
         <view class="menu-end"><text v-if="item.key === 'photos'">{{ electronicCount }} 张</text><u-icon name="arrow-right" size="15" color="#8b8f95" /></view>
       </view>
@@ -44,13 +44,14 @@
         <view class="menu-end"><u-icon name="arrow-right" size="15" color="#8b8f95" /></view>
       </view>
     </view>
-    <view class="page-footer">小七快照拍 · 用心记录每一张照片</view>
+    <view class="page-footer">{{ $product.name }} · 用心记录每一张照片</view>
   </view>
 </template>
 
 <script lang="ts">
 import Vue from 'vue';
 import { Component } from 'vue-property-decorator';
+import { capabilities } from '@/config';
 import StorageManager from '@/utils/storage';
 import { ElectronicPhotoManager } from '@/utils/electronic-photo';
 import { clearTemporaryImages } from '@/utils/image-file';
@@ -60,6 +61,8 @@ interface MenuItem { key: string; label: string; icon: string; color: string; to
 
 @Component({})
 export default class Mine extends Vue {
+  get purchaseEnabled() { return capabilities.purchaseEnabled; }
+  get visiblePersonalItems() { return this.personalItems.filter(item => item.key !== 'member' || this.purchaseEnabled || !!(this.memberStatus && this.memberStatus.active)); }
   memberRef = '';
   profileError = false;
   profileSequence = 0;
@@ -123,7 +126,7 @@ export default class Mine extends Vue {
     else if (item.key === 'clear') this.clearCache();
   }
   electronic() { uni.switchTab({ url: '/pages/electronic/index' }); }
-  previewQrcode() { uni.previewImage({ urls: ['/static/qrcode.jpg'], current: '/static/qrcode.jpg' }); }
+  previewQrcode() { uni.showModal({title:'联系与反馈', content:this.$product.contact, confirmText:'复制', success:result => {if(result.confirm) uni.setClipboardData({data:this.$product.contact});}}); }
   clearCache() {
     uni.showModal({ title: '确认清理', content: '将清理本地电子照、照片历史和临时图片，不影响手机相册。', success: async res => {
       if (!res.confirm) return;
@@ -140,8 +143,8 @@ export default class Mine extends Vue {
       }
     } });
   }
-  onShareTimeline() { return { title: '小七快照拍 - 专业证件照制作', imageUrl: '/static/example.jpeg' }; }
-  onShareAppMessage() { return { title: '小七快照拍 - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
+  onShareTimeline() { return { title: this.$product.name + ' - 专业证件照制作', imageUrl: '/static/example.jpeg' }; }
+  onShareAppMessage() { return { title: this.$product.name + ' - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
 }
 </script>
 

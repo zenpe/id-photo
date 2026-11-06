@@ -12,6 +12,7 @@
       <scroll-view class="content-scroll" scroll-y="true">
         <view class="content-section">
           <view class="section-block">
+            <text class="section-title">运营主体</text><text class="section-content">{{ $product.operator }}；联系渠道：{{ $product.contact }}</text>
             <text class="section-title">照片处理</text>
             <text class="section-content">选择或拍摄照片后，照片会通过网络发送至证件照处理服务，以完成人像抠图、证件照制作或水印处理。处理结果会返回您的设备。</text>
           </view>
@@ -26,11 +27,11 @@
           </view>
           <view class="section-block">
             <text class="section-title">微信服务与广告</text>
-            <text class="section-content">本应用使用微信登录能力验证访问，并使用微信激励视频广告。微信及广告服务可能按照其规则处理相关数据，具体请参阅微信的隐私说明。</text>
+            <text class="section-content">本应用使用微信登录能力验证访问，并在运营方启用广告后使用微信激励视频广告。微信及广告服务可能按照其规则处理相关数据，具体请参阅微信的隐私说明。</text>
           </view>
           <view class="section-block">
             <text class="section-title">联系我们</text>
-            <text class="section-content">有关照片和隐私的问题，可通过 761287561@qq.com 联系我们。</text>
+            <text class="section-content">有关照片和隐私的问题，可通过 {{ $product.contact }} 联系我们。</text>
           </view>
         </view>
       </scroll-view>
@@ -88,7 +89,7 @@ export default class PrivacyPolicy extends Vue {
    */
   onShareTimeline() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       query: '',
       imageUrl: '/static/example.jpeg'
     };
@@ -99,7 +100,7 @@ export default class PrivacyPolicy extends Vue {
    */
   onShareAppMessage() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       path: '/pages/index/index',
       imageUrl: '/static/example.jpeg'
     };

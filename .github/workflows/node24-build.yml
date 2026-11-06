@@ -10,6 +10,11 @@ permissions:
 
 jobs:
   build:
+    env:
+      VUE_APP_API_BASE_URL: https://ci.invalid
+      VUE_APP_BRAND_NAME: CI fixture
+      VUE_APP_OPERATOR: CI fixture
+      VUE_APP_CONTACT: ci@invalid
     strategy:
       fail-fast: false
       matrix:

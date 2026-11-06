@@ -344,7 +344,7 @@ export default class MattingPage extends Vue {
    */
   onShareTimeline() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       query: '',
       imageUrl: '/static/example.jpeg'
     };
@@ -355,7 +355,7 @@ export default class MattingPage extends Vue {
    */
   onShareAppMessage() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       path: '/pages/index/index',
       imageUrl: '/static/example.jpeg'
     };

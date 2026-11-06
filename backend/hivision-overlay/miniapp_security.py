@@ -31,7 +31,7 @@ _request_subject = contextvars.ContextVar('miniapp_request_subject', default=Non
 # payment callback verifies its own WeChat signature, and the demo media is a
 # fixed one-pixel image used only as the media_check_async review example.
 PUBLIC_PATHS = frozenset({
-    '/health', '/service-status', '/auth/wechat', '/payment/notify',
+    '/health', '/capabilities', '/service-status', '/auth/wechat', '/payment/notify',
     '/content-security/demo-media',
 })
 

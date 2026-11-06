@@ -54,6 +54,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import { productConfig } from '@/config';
 import { Component, Prop } from "vue-property-decorator";
 
 // 声明微信小程序类型
@@ -62,7 +63,7 @@ declare const wx: any;
 @Component({})
 export default class ShareButton extends Vue {
   @Prop({ type: String, default: '/pages/index/index' }) sharePath!: string;
-  @Prop({ type: String, default: '小七快照拍 - 图片制作与证件照编辑' }) shareTitle!: string;
+  @Prop({ type: String, default: productConfig.name + ' - 图片制作与证件照编辑' }) shareTitle!: string;
   @Prop({ type: String, default: '/static/example.jpeg' }) shareImage!: string;
   
   showSharePopup: boolean = false;

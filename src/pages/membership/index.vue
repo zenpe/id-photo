@@ -4,27 +4,32 @@
     <view class="hero"><view><view class="hero-title">会员免广告保存</view><view class="hero-subtitle">保存照片，无需观看广告</view></view><view class="hero-badge"><u-icon name="gift-fill" size="30" color="#cc3d35" /></view></view>
     <view v-if="memberStatus && memberStatus.active" class="status-card"><view><text class="status-title">会员已开通</text><text class="status-desc">有效期至 {{ date(memberStatus.expires_at) }}</text></view></view>
     <view v-else-if="memberStatus && memberStatus.status === 'expired'" class="status-card"><view><text class="status-title">会员已到期</text><text class="status-desc">到期时间 {{ date(memberStatus.expires_at) }}</text></view></view>
-    <view class="section-title">选择会员套餐</view>
+    <view class="section-title">{{ purchaseEnabled ? "选择会员套餐" : "暂未开放购买，已有权益和订单仍可查询" }}</view>
     <InlineState v-if="loading" kind="loading" title="正在加载套餐" description="请稍候" />
     <InlineState v-else-if="error" kind="error" title="套餐暂时无法加载" description="请检查网络后重试" action-text="重新加载" @action="load" />
     <InlineState v-else-if="!plans.length" title="套餐准备中" description="请稍后再来" icon="gift" />
     <view v-else class="plan-grid"><view v-for="plan in plans" :key="plan.id" class="plan" :class="{ selected: selectedId === plan.id }" @click="selectedId = plan.id"><text class="plan-name">{{ plan.months }}个月</text><text class="plan-price"><text class="currency">¥</text>{{ price(plan.price_fen) }}</text><text v-if="plan.status !== 'active'" class="plan-state">准备中</text></view></view>
     <view class="benefit"><text>会员权益</text><text class="benefit-value">免广告保存</text></view>
     <view class="notes"><view>ⓘ 单次购买，不自动续费</view><view>ⓘ 按自然月计算，续费时长叠加</view><view>ⓘ 套餐和价格以购买时页面为准</view></view>
-    <view class="bottom"><view class="primary-button" :class="{ disabled: !selectedPlan }" @click="openDetails">{{ selectedPlan && selectedPlan.status === 'active' ? '开通会员 ¥' + price(selectedPlan.price_fen) : selectedPlan ? '查看套餐详情' : '套餐准备中' }}</view></view>
+    <view v-if="purchaseEnabled" class="bottom"><view class="primary-button" :class="{ disabled: !selectedPlan }" @click="openDetails">{{ selectedPlan && selectedPlan.status === 'active' ? '开通会员 ¥' + price(selectedPlan.price_fen) : selectedPlan ? '查看套餐详情' : '套餐准备中' }}</view></view>
   </view>
 </template>
 <script lang="ts">
 import Vue from 'vue';
+import { capabilities } from '@/config';
+import { refreshCapabilities } from '@/api/capabilities';
 import { Component } from 'vue-property-decorator';
 import { getMembershipPlans, getMembershipStatus, MembershipPlan, MembershipStatus, formatFen, formatMemberDate } from '@/api/membership';
 import InlineState from '@/components/InlineState.vue';
 @Component({ components: { InlineState } })
 export default class Membership extends Vue {
   plans: MembershipPlan[] = []; memberStatus: MembershipStatus | null = null; selectedId: number | null = null; loading = true; error = false;
+  get purchaseEnabled() { return capabilities.purchaseEnabled; }
   get selectedPlan(): MembershipPlan | undefined { return this.plans.find(item => item.id === this.selectedId); }
   onShow() { this.load(); }
   async load() {
+    await refreshCapabilities();
+    if (!this.purchaseEnabled) { this.loading=false; this.plans=[]; try {this.memberStatus=await getMembershipStatus();}catch(_){} return; }
     this.loading = true; this.error = false;
     try { this.plans = await getMembershipPlans(); if (!this.plans.some(item => item.id === this.selectedId)) this.selectedId = this.plans.length ? this.plans[0].id : null; }
     catch (_) { this.error = true; this.plans = []; this.selectedId = null; }
@@ -33,7 +38,7 @@ export default class Membership extends Vue {
   }
   price(value: number) { return formatFen(value).replace(/\.00$/, ''); }
   date(value: string | null) { return formatMemberDate(value); }
-  openDetails() { if (this.selectedPlan) uni.navigateTo({ url: `/pages/membership/confirm?id=${this.selectedPlan.id}` }); }
+  openDetails() { if (this.purchaseEnabled && this.selectedPlan) uni.navigateTo({ url: `/pages/membership/confirm?id=${this.selectedPlan.id}` }); }
 }
 </script>
 <style lang="scss" scoped>

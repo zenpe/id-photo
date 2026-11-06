@@ -1,8 +1,9 @@
+import Vue from 'vue';
 interface EnvironmentConfig {
   host: string;
 }
 
-const defaultHost = 'https://photo.ruize.eu.org';
+const defaultHost = '';
 const baseApi: { [key: string]: EnvironmentConfig } = {
   development: { host: process.env.VUE_APP_API_DEVELOPMENT || process.env.VUE_APP_API_BASE_URL || defaultHost },
   trial: { host: process.env.VUE_APP_API_TRIAL || process.env.VUE_APP_API_BASE_URL || defaultHost },
@@ -28,8 +29,16 @@ export const env = getEnvironment();
 export const baseUrl = baseApi[env].host.replace(/\/$/, '');
 
 // Set VUE_APP_REWARDED_VIDEO_AD_UNIT_ID in .env.local before building.
-export const adConfig = {
-  rewardedVideoAdUnitId: process.env.VUE_APP_REWARDED_VIDEO_AD_UNIT_ID || '',
+export const adConfig = Vue.observable({
+  rewardedVideoAdUnitId: '',
   saveMode: 'free' as 'free' | 'rewarded',
   adUnavailable: 'free' as 'free' | 'retry'
+});
+export const capabilities = Vue.observable({purchaseEnabled:false, asyncMediaEnabled:false, diagnosticsEnabled:false, version:''});
+export const productConfig = {
+  name: process.env.VUE_APP_BRAND_NAME || '证件照工具',
+  operator: process.env.VUE_APP_OPERATOR || '运营主体尚未配置',
+  contact: process.env.VUE_APP_CONTACT || '联系方式尚未配置'
 };
+declare module 'vue/types/vue' { interface Vue { $product: typeof productConfig; } }
+Vue.prototype.$product = productConfig;

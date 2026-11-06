@@ -145,7 +145,7 @@ export default class Index extends Vue {
     this.selectSize({ name: '自定义尺寸', pxWidth: width, pxHeight: height, dpi: 300,
       mmWidth: Math.round(width * 25.4 / 300), mmHeight: Math.round(height * 25.4 / 300) });
   }
-  onShareAppMessage() { return { title: '小七快照拍 - 轻松制作证件照', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
+  onShareAppMessage() { return { title: this.$product.name + ' - 轻松制作证件照', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
 }
 </script>
 

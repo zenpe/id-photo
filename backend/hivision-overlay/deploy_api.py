@@ -9,6 +9,7 @@ from miniapp_security import SecurityMiddleware, audit_image, read_image, read_i
 from miniapp_membership import initialize as initialize_membership, router as membership_router
 from miniapp_identity import get_openid, identity_key, resolve_subject
 from miniapp_payment import router as payment_router, reconcile_loop, validate_payment_config
+from miniapp_capabilities import router as capabilities_router, capabilities, async_media_enabled
 from miniapp_status import ServiceObservationMiddleware, router as status_router
 from miniapp_content_security import check_media, check_text, enabled as content_security_enabled
 import threading
@@ -70,6 +71,7 @@ StarletteRequest._get_form = _get_form_with_image_limit
 @asynccontextmanager
 async def lifespan(app):
     validate_config()
+    capabilities()
     initialize_membership()
     identity_key()
     validate_payment_config()
@@ -159,6 +161,7 @@ app.post("/auth/wechat")(wechat_login)
 app.include_router(membership_router)
 app.include_router(payment_router)
 app.include_router(status_router)
+app.include_router(capabilities_router)
 
 @app.get("/health")
 def health():
@@ -175,6 +178,8 @@ CONTENT_SECURITY_DEMO_MEDIA = base64.b64decode(
 
 @app.get("/content-security/demo-media", include_in_schema=False)
 def content_security_demo_media():
+    if not async_media_enabled():
+        raise HTTPException(503, "异步检测尚未启用")
     return Response(
         content=CONTENT_SECURITY_DEMO_MEDIA,
         media_type="image/png",
@@ -212,6 +217,8 @@ async def content_security_text(request: Request, data: ContentTextRequest):
 
 @app.post("/content-security/media")
 async def content_security_media(request: Request, data: ContentMediaRequest):
+    if not async_media_enabled():
+        raise HTTPException(503, "异步检测尚未启用")
     subject = await asyncio.to_thread(resolve_subject, request.state.subject)
     openid = await asyncio.to_thread(get_openid, subject)
     result = await check_media(

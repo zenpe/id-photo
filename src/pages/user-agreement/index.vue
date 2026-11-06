@@ -5,7 +5,7 @@
         <view class="app-icon">
           <u-image src="/static/logo.png" width="60rpx" height="60rpx" radius="14rpx" />
         </view>
-        <text class="app-title">小七快照拍用户协议</text>
+        <text class="app-title">{{ $product.name }}用户协议</text>
         <text class="update-date">更新日期：2026年11月</text>
       </view>
 
@@ -14,7 +14,7 @@
           <view class="section-block">
             <text class="section-title">1. 服务条款</text>
             <text class="section-content">
-              欢迎使用小七快照拍应用（以下简称"本应用"）。本应用是一款图片制作与编辑工具，为用户提供证件照裁剪、背景处理、排版和格式调整服务。
+              欢迎使用{{ $product.name }}应用（以下简称"本应用"）。本应用是一款图片制作与编辑工具，为用户提供证件照裁剪、背景处理、排版和格式调整服务。
             </text>
             <text class="section-content">
               使用本应用即表示您已充分阅读、理解并同意本协议的所有条款。如果您不同意本协议的任何条款，请立即停止使用本应用。
@@ -145,13 +145,13 @@
               • 意见反馈：个人中心 → 意见反馈
             </text>
             <text class="section-list">
-              • 客服邮箱：761287561@qq.com
+              • 客服邮箱：{{ $product.contact }}
             </text>
           </view>
 
           <view class="footer-section">
             <text class="footer-text">本协议自发布之日起生效</text>
-            <text class="footer-text">© 2025 小七快照拍 版权所有</text>
+            <text class="footer-text">© 2025 {{ $product.name }} 版权所有</text>
           </view>
         </view>
       </scroll-view>
@@ -209,7 +209,7 @@ export default class UserAgreement extends Vue {
    */
   onShareTimeline() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       query: '',
       imageUrl: '/static/example.jpeg'
     };
@@ -220,7 +220,7 @@ export default class UserAgreement extends Vue {
    */
   onShareAppMessage() {
     return {
-      title: '小七快照拍 - 专业证件照制作',
+      title: this.$product.name + ' - 专业证件照制作',
       path: '/pages/index/index',
       imageUrl: '/static/example.jpeg'
     };

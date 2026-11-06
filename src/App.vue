@@ -1,6 +1,7 @@
 <script lang="ts">
 import Vue from 'vue';
 import StorageManager from '@/utils/storage';
+import { refreshCapabilities } from '@/api/capabilities';
 
 // 声明微信小程序类型
 declare const wx: any;
@@ -13,6 +14,7 @@ export default Vue.extend({
         this.initGlobalShare();
     },
     onShow() {
+        refreshCapabilities();
         console.log('App Show');
         // #ifndef APP-NVUE
         uni.requireNativePlugin = () => { };

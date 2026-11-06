@@ -129,8 +129,8 @@ export default class PhotoEdit extends Vue {
     if (ElectronicPhotoManager.save(photoData)) { uni.showToast({ title: '已保存到电子照', icon: 'success' }); }
     else uni.showModal({ title: '已保存到相册', content: '保存到电子照失败，请检查设备存储空间', showCancel: false });
   }
-  onShareTimeline() { return { title: '小七快照拍 - 专业证件照制作', imageUrl: '/static/example.jpeg' }; }
-  onShareAppMessage() { return { title: '小七快照拍 - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
+  onShareTimeline() { return { title: this.$product.name + ' - 专业证件照制作', imageUrl: '/static/example.jpeg' }; }
+  onShareAppMessage() { return { title: this.$product.name + ' - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
 }
 </script>
 

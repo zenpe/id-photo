@@ -112,11 +112,11 @@ export default class MattingResult extends Vue {
   }
 
   onShareTimeline() {
-    return { title: '小七快照拍 - 专业证件照制作', imageUrl: '/static/example.jpeg' };
+    return { title: this.$product.name + ' - 专业证件照制作', imageUrl: '/static/example.jpeg' };
   }
 
   onShareAppMessage() {
-    return { title: '小七快照拍 - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
+    return { title: this.$product.name + ' - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
   }
 }
 </script>

@@ -16,7 +16,7 @@
       </view>
     </view>
     <view class="explanation">{{ snapshot && connection === 'online' ? snapshot.note : connection === 'offline' ? '无法连接可能与手机网络、服务繁忙或服务器离线有关。请检查网络后重试。' : '正在获取最新的服务状态。' }}</view>
-    <view class="security-card">
+    <view v-if="diagnosticsEnabled" class="security-card">
       <view class="security-heading"><view><view class="security-title">内容安全检测</view><view class="security-subtitle">照片处理前先检查，审核演示会显示微信接口返回值</view></view><u-icon name="lock" size="25" color="#287c70" /></view>
       <view class="security-note">图片、文本和异步媒体检测均由后端调用微信内容安全接口；原始图片不写入审计日志，检测失败时不会继续处理。</view>
 
@@ -42,7 +42,7 @@
         <view class="security-action" :class="{ disabled: textChecking }" @click="verifyText">{{ textChecking ? '正在检测…' : '检测这段文本' }}</view>
       </view>
 
-      <view class="security-demo last-demo">
+      <view v-if="asyncMediaEnabled" class="security-demo last-demo">
         <view class="demo-heading"><text class="demo-index">3</text><view><view class="demo-title">异步媒体检测</view><view class="demo-api">mediaCheckAsync</view></view></view>
         <view class="security-help">默认使用服务提供的固定演示图片，也可填写可公开访问的 HTTPS 图片地址。提交成功后，最终判定由微信消息推送回调返回。</view>
         <input v-model="mediaUrl" class="security-input" maxlength="2048" placeholder="https://…" />
@@ -60,6 +60,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
+import { capabilities } from '@/config';
 import { Component } from 'vue-property-decorator';
 import { fetchServiceStatus, ServiceSnapshot, CheckState } from '@/api/service-status';
 import { formatMemberDate } from '@/api/membership';
@@ -75,11 +76,13 @@ export default class StatusPage extends Vue {
   timer: any = null;
   imageChecking = false;
   textChecking = false;
+  get diagnosticsEnabled() { return capabilities.diagnosticsEnabled; }
+  get asyncMediaEnabled() { return capabilities.asyncMediaEnabled; }
   mediaChecking = false;
   imageResult: ContentSecurityResult | null = null;
   textResult: ContentSecurityResult | null = null;
   mediaResult: ContentSecurityResult | null = null;
-  textContent = '小七快照拍内容安全能力演示';
+  textContent = this.$product.name + '内容安全能力演示';
   mediaUrl = `${baseUrl}/content-security/demo-media`;
   get displayState() { return this.connection === 'online' && this.snapshot ? this.snapshot.status : this.connection; }
   get summaryTitle() { return ({ checking:'正在检查服务', ok:'服务连接正常', degraded:'部分服务可能受影响', offline:'暂时无法连接服务' } as any)[this.displayState]; }
@@ -136,7 +139,7 @@ export default class StatusPage extends Vue {
     }
   }
   async verifyMedia() {
-    if (this.mediaChecking) return;
+    if (!this.asyncMediaEnabled || this.mediaChecking) return;
     const mediaUrl = this.mediaUrl.trim();
     if (!/^https:\/\//i.test(mediaUrl)) { uni.showToast({ title: '请输入 HTTPS 媒体地址', icon: 'none' }); return; }
     this.mediaChecking = true;

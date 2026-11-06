@@ -1,6 +1,8 @@
 <template><view class="page"><InlineState v-if="loading" kind="loading" title="正在加载套餐" description="请稍候" /><InlineState v-else-if="!plan" kind="error" title="套餐暂不可用" description="请稍后重新加载" action-text="重新加载" @action="load" /><template v-else><view class="card"><view class="order-head"><text>{{ plan.name }}</text><text class="price">¥{{ price(plan.price_fen) }}</text></view><view class="row"><text>会员时长</text><text>{{ plan.months }}个月</text></view><view class="row"><text>会员权益</text><text>免广告保存</text></view><view class="row"><text>续费规则</text><text>按自然月叠加</text></view><view class="row"><text>购买方式</text><text>单次购买</text></view></view><view v-if="sandbox" class="note">沙箱模式：仅用于 Android 测试，不产生正式会员。</view><view class="note">ⓘ 不自动续费，到期后可手动续费</view><view v-if="plan.status !== 'active'" class="note">套餐正在准备，开放购买后可在此确认订单。</view><view v-else class="note">支付完成后请等待服务器确认会员权益。</view><view class="note link" @click="openRules">查看会员与退款说明 ›</view><view class="bottom"><view class="primary-button" :class="{ disabled: plan.status !== 'active' || buying }" @click="buy">{{ buying ? '正在创建订单...' : plan.status === 'active' ? '确认支付 ¥' + price(plan.price_fen) : '购买暂未开放' }}</view></view></template></view></template>
 <script lang="ts">
-import Vue from 'vue'; import { Component } from 'vue-property-decorator';
+import Vue from 'vue';
+import { capabilities } from '@/config';
+import { refreshCapabilities } from '@/api/capabilities'; import { Component } from 'vue-property-decorator';
 import InlineState from '@/components/InlineState.vue';
 import { getMembershipPlans, createMembershipOrder, MembershipPlan, formatFen } from '@/api/membership';
 declare const wx: any;
@@ -34,6 +36,8 @@ declare const wx: any;
     // #endif
   }
   async buy() {
+    await refreshCapabilities();
+    if (!capabilities.purchaseEnabled) { uni.showToast({title:'暂未开放购买',icon:'none'}); return; }
     if (this.buying || !this.plan || this.plan.status !== 'active' || !this.checkDevice()) return;
     this.buying = true;
     try {
