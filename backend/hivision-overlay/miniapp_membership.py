@@ -2,6 +2,7 @@
 import os
 import re
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 
 DATA_DIR = Path(os.environ.get('IDPHOTO_DATA_DIR', Path(__file__).resolve().parent / '.miniapp_data'))
 DB_PATH = DATA_DIR / 'membership.sqlite3'
+_SCHEMA_LOCK = threading.Lock()
 
 
 @contextmanager
@@ -18,7 +20,10 @@ def database():
     DATA_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     db = sqlite3.connect(str(DB_PATH), timeout=10)
     try:
-        os.chmod(DB_PATH, 0o600)
+        # Windows chmod toggles the read-only bit and breaks SQLite writes.
+        # POSIX production images keep the strict 0600 permission.
+        if os.name == 'posix':
+            os.chmod(DB_PATH, 0o600)
         db.row_factory = sqlite3.Row
         db.execute('PRAGMA foreign_keys = ON')
         yield db
@@ -31,6 +36,13 @@ def database():
 
 
 def initialize():
+    # Concurrent DDL reports SQLITE_READONLY on Windows. Serialize in-process
+    # startups; BEGIN IMMEDIATE below still guards ALTERs across processes.
+    with _SCHEMA_LOCK:
+        return _initialize_unlocked()
+
+
+def _initialize_unlocked():
     with database() as db:
         db.executescript('''
         CREATE TABLE IF NOT EXISTS plans (

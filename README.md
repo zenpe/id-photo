@@ -9,7 +9,7 @@
 [![Vue](https://img.shields.io/badge/Vue-3.4-42b883.svg)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg)](https://www.typescriptlang.org/)
 
-[界面展示](#界面展示) · [功能介绍](#功能介绍) · [快速开始](#快速开始) · [管理后台](#管理后台) · [项目结构](#项目结构)
+[当前版本基线](#当前版本基线) · [界面展示](#界面展示) · [功能介绍](#功能介绍) · [快速开始](#快速开始) · [管理后台](#管理后台) · [项目结构](#项目结构)
 
 </div>
 
@@ -87,6 +87,13 @@
 后台可对符合条件的普通虚拟支付订单发起退款；Apple 内购退款按 Apple 的流程处理。经核实全额退款后，系统会回收该订单尚未使用的会员权益；部分退款及无法安全计算的情况需要人工核对。退款流程与部署注意事项见 [后端说明](backend/README.md#定位用户与处理退款申请)。
 
 默认本地后台地址为 `http://127.0.0.1:8091/`。如需公网访问，应配置 Cloudflare Tunnel、Cloudflare Access 和后台账号密码；历史原生部署见 [后台公网访问](backend/README.md#后台公网访问)；fnOS 推荐使用 [SSH 隧道后台访问](docs/deploy-fnos.md#可选管理后台)。
+
+## 当前版本基线
+
+- **唯一开发主线**：`migration/vue3-vite`（Vue 3 + Vite，含小程序运行时修复与后端线程池优化）。后续所有改动都基于这条分支。
+- `test/fnos-docker` 是 NAS 部署分支，`main` 是 Vue 2 历史版本；两者均已冻结，不作为开发基线。
+- 发布构建前须在 `.env.local` 填写真实的 `VUE_APP_OPERATOR` 与 `VUE_APP_CONTACT`；占位值会被 `scripts/validate-config.cjs` 拦截。仅本地预览打包时可设 `IDPHOTO_PREVIEW_BUILD=1`。
+- 上线前验收清单见 [迁移记录](docs/migration-vue3.md) 末尾的「集中正式验收待完成项」。
 
 ## 快速开始
 

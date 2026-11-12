@@ -8,8 +8,17 @@ module.exports = function validateConfig(env = process.env) {
       if (parsed.protocol !== 'https:' || parsed.username || parsed.password || /your_|your-api|change_me|\.example$|(?:example\.(?:com|org)|ruize\.eu\.org)$/.test(parsed.hostname)) throw Error();
     } catch (_) { errors.push(['development','trial','release'][index] + ': configure your own HTTPS API URL'); }
   });
+  const previewBuild = env.IDPHOTO_PREVIEW_BUILD === '1';
+  const placeholder = /CHANGE_ME|YOUR_|测试预览|未配置|未填写|PLACEHOLDER|示例|preview@|@invalid$|example\.(?:com|org)$/i;
   for (const key of ['VUE_APP_OPERATOR','VUE_APP_CONTACT']) {
-    if (!env[key] || /^(CHANGE_ME|YOUR_)/.test(env[key])) errors.push('Configure ' + key + ' in .env.local');
+    const value = String(env[key] || '').trim();
+    if (!value || /^(CHANGE_ME|YOUR_)/.test(value)) {
+      errors.push('Configure ' + key + ' in .env.local');
+      continue;
+    }
+    if (!previewBuild && placeholder.test(value)) {
+      errors.push(key + ' is still a placeholder: ' + value + '. Set the real operator/contact, or set IDPHOTO_PREVIEW_BUILD=1 for a local preview build.');
+    }
   }
   const brand = JSON.parse(fs.readFileSync('backend/branding.json', 'utf8'));
   for (const key of ['name','shortName','tagline','description','shareDescription']) {
