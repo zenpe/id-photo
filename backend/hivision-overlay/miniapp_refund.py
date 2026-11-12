@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import requests
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, conint, validator
+from pydantic import BaseModel, Field, conint, field_validator
 from typing import Literal
 
 from miniapp_identity import get_openid
@@ -32,13 +32,13 @@ class RefundInput(BaseModel):
     reason_code: Literal['0', '1', '2', '3', '4', '5']
     note: str = Field(min_length=2, max_length=200)
 
-    @validator('request_key')
+    @field_validator('request_key')
     def valid_request_key(cls, value):
         if not re.fullmatch(r'[a-f0-9]{32}', value):
             raise ValueError('退款请求编号无效')
         return value
 
-    @validator('note')
+    @field_validator('note')
     def valid_note(cls, value):
         value = value.strip()
         if len(value) < 2:
@@ -50,7 +50,7 @@ class RefundReviewInput(BaseModel):
     outcome: Literal['confirmed', 'not_refunded']
     note: str = Field(min_length=2, max_length=200)
 
-    @validator('note')
+    @field_validator('note')
     def valid_note(cls, value):
         value = value.strip()
         if len(value) < 2:

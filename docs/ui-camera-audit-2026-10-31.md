@@ -1,5 +1,7 @@
 # 拍摄界面统一审计
 
+> Historical Vue 2 record. Current migration results and acceptance scope: [Vue 3 migration](migration-vue3.md).
+
 ## 覆盖范围
 
 - 证件照：`pages/photo/index`

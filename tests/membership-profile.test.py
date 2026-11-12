@@ -57,7 +57,7 @@ class ProfileIntegration(unittest.IsolatedAsyncioTestCase):
         other = await self.client.get('/membership/profile', headers=self.other_headers)
         self.assertEqual(owner.status_code, 200)
         self.assertEqual(owner.json(), {'user_ref': self.owner[:16]})
-        self.assertEqual(owner.headers['cache-control'], 'private, no-store')
+        self.assertEqual(owner.headers['cache-control'], 'no-store')
         self.assertEqual(other.json(), {'user_ref': self.other[:16]})
         self.assertNotEqual(owner.json(), other.json())
         # Extra query parameters cannot select another user's reference.

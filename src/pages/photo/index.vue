@@ -4,6 +4,7 @@
     <view class="selection-content">
       <view class="selection-card">
         <view class="selection-title">已选规格</view>
+        <view class="specification-note">请以办理机构要求为准，确认尺寸、底色和文件大小。</view>
         <view class="selected-size">
           <view class="selected-icon"><u-icon name="account" size="28" color="#8a8f95" /></view>
           <view class="selected-copy"><text class="selected-name">{{ photoSize.name }}</text><text class="selected-detail">{{ photoSize.mmWidth }}×{{ photoSize.mmHeight }} mm · {{ photoSize.pxWidth }}×{{ photoSize.pxHeight }} px</text></view>
@@ -46,36 +47,39 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import DraftResume from '@/components/DraftResume.vue';
 import { rememberDraft, TaskDraft, loadDraft } from '@/utils/task-draft';
-import { Component } from "vue-property-decorator";
 import { GeneratePhoto } from '@/api/photo'
 import { PhotoSize } from '@/model/PhotoSize'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import PhotoCamera from '@/components/PhotoCamera.vue'
-import { Getter, Mutation } from 'vuex-class';
 import { Colors } from '@/model/Colors'
 import { PhotoPath } from "@/model/Interfaces";
 import { writeTemporaryImage, removeTemporaryImage } from "@/utils/image-file";
-
 // 声明微信小程序类型
 declare const wx: any;
+import { productConfig } from '@/config';
+import { usePhotoStore } from '@/store/modules/photo';
+import { ref, computed, onMounted } from 'vue';
+import { onHide, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { DraftResume, LoadingOverlay, PhotoCamera } })
-export default class PhotoIndex extends Vue {
-  // 按钮样式
-  primaryButtonStyle = {
+const photoStore = usePhotoStore();
+
+const photoSize = computed(() => photoStore.photoConfig);
+
+const setPhotoPath = photoStore.setPhotoPath;
+
+const primaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '44rpx',
     fontSize: '32rpx',
     fontWeight: 'bold',
     boxShadow: '0 8rpx 24rpx rgba(247, 114, 97, 0.3)'
-  };
-  
-  secondaryButtonStyle = {
+});
+
+const secondaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '44rpx',
@@ -83,9 +87,9 @@ export default class PhotoIndex extends Vue {
     fontWeight: 'bold',
     borderColor: '#F77261',
     color: '#F77261'
-  };
+});
 
-  form: any = {
+const form = ref<any>({
     height: 0,
     width: 0,
     human_matting_model: "hivision_modnet",
@@ -93,171 +97,197 @@ export default class PhotoIndex extends Vue {
     face_align: false,
     horizontal_flip: false,
     whitening_strength: 0
-  }
-  models = [
+});
+
+const models = ref([
     { label: '标准版', value: 'hivision_modnet' },
     { label: '增强版', value: 'birefnet-v1-lite' },
     { label: '人像版', value: 'modnet_photographic_portrait_matting' }
-  ]
-  settingsExpanded: boolean = false
-  changeSize() { uni.navigateBack(); }
-  modelIndex: number = 0
-  onModelChange(event: any) { this.modelIndex = Number(event.detail.value); this.form.human_matting_model = this.models[this.modelIndex].value }
-  onFaceAlignChange(event: any) { this.form.face_align = event.detail.value }
-  onFlipChange(event: any) { this.form.horizontal_flip = event.detail.value }
-  onWhiteningChange(event: any) { this.form.whitening_strength = Number(event.detail.value) }
-  colors = Colors.slice(0, 5)
-  //本地文件地址
-  imagePath: string = ''
-  //图片预览遮罩
-  show: boolean = false
-  //加载动画
-  loading: boolean = false
-  showCamera: boolean = false
-  //获取图片配置
-  @Getter('photoConfig') photoSize!: PhotoSize
-  //设置图片base64地址
-  @Mutation('SET_PHOTO_PATH') setPhotoPath!: (data: PhotoPath) => void
+]);
 
-  mounted() {
+const settingsExpanded = ref<boolean>(false);
+
+function changeSize() {
+    uni.navigateBack();
+}
+
+const modelIndex = ref<number>(0);
+
+function onModelChange(event: any) {
+    modelIndex.value = Number(event.detail.value);
+    form.value.human_matting_model = models.value[modelIndex.value].value;
+}
+
+function onFaceAlignChange(event: any) {
+    form.value.face_align = event.detail.value;
+}
+
+function onFlipChange(event: any) {
+    form.value.horizontal_flip = event.detail.value;
+}
+
+function onWhiteningChange(event: any) {
+    form.value.whitening_strength = Number(event.detail.value);
+}
+
+const colors = ref(Colors.slice(0, 5));
+
+const imagePath = ref<string>('');
+
+const show = ref<boolean>(false);
+
+const loading = ref<boolean>(false);
+
+const showCamera = ref<boolean>(false);
+
+function handleOnMounted() {
     // 显示分享菜单，包括分享到朋友圈
     // #ifdef MP-WEIXIN
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: (res: any) => {
-        console.log('显示分享菜单成功', res);
-      },
-      fail: (err: any) => {
-        console.log('显示分享菜单失败', err);
-      }
+        menus: ['shareAppMessage', 'shareTimeline'],
+        fail: () => {
+            // No shareTimeline permission on some AppIDs: keep the basic share entry.
+            wx.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+        }
     });
     // #endif
-  }
-  /**
-   * 选择图片
-   */
-  chooseImage(type: 'album' | 'camera') {
-    if (type === 'camera') {
-      this.openCamera();
-      return;
-    }
+}
 
+function chooseImage(type: 'album' | 'camera') {
+    if (type === 'camera') {
+        openCamera();
+        return;
+    }
     // 从相册选择，直接处理，不显示预览弹窗
     // #ifdef H5
     uni.chooseImage({
-      count: 1,
-      sourceType: [type],
-      success: (res) => {
-        const path = res.tempFilePaths[0];
-        this.imagePath = path
-        // 直接进行处理，不显示预览弹窗
-        this.confirmSelect();
-      }
+        count: 1,
+        sourceType: [type],
+        success: (res) => {
+            const path = res.tempFilePaths[0];
+            imagePath.value = path;
+            // 直接进行处理，不显示预览弹窗
+            confirmSelect();
+        }
     });
     // #endif
-
     // #ifdef MP-WEIXIN
     uni.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: [type],
-      success: (res) => {
-        const path = res.tempFiles[0].tempFilePath
-        this.imagePath = path
-        // 直接进行处理，不显示预览弹窗
-        this.confirmSelect();
-      }
+        count: 1,
+        mediaType: ['image'],
+        sourceType: [type],
+        success: (res) => {
+            const path = res.tempFiles[0].tempFilePath;
+            imagePath.value = path;
+            // 直接进行处理，不显示预览弹窗
+            confirmSelect();
+        }
     });
     // #endif
-  }
+}
 
-  openCamera() { this.showCamera = true; }
-  onCameraSelect(path: string) {
-    this.showCamera = false;
-    this.imagePath = path;
-    this.confirmSelect();
-  }
+function openCamera() {
+    showCamera.value = true;
+}
 
-  /**
-   * 提交表单
-   */
-  submit() {
+function onCameraSelect(path: string) {
+    showCamera.value = false;
+    imagePath.value = path;
+    confirmSelect();
+}
 
-  }
-  /**
-   * 确认选择
-   */
+function submit() {
+}
 
-  async keepDraft() { await rememberDraft('photo',{source:this.imagePath},{stage:'source',form:{...this.form},modelIndex:this.modelIndex,photoSize:this.photoSize}); }
-  onHide() { if(this.imagePath && !this.loading && loadDraft('photo')?.state.stage!=='editing')this.keepDraft(); }
-  restoreDraft(draft:TaskDraft) {
-    if(draft.state.photoSize)this.$store.commit('SET_PHOTO_SIZE',draft.state.photoSize);
-    if(draft.state.stage==='editing') {
-      this.setPhotoPath({base64:'',base64HD:'',base64Path:draft.files.standard,base64HDPath:draft.files.hd});
-      uni.navigateTo({url:'/pages/photo/edit?restore=1'}); return;
+async function keepDraft() {
+    await rememberDraft('photo', { source: imagePath.value }, { stage: 'source', form: { ...form.value }, modelIndex: modelIndex.value, photoSize: photoSize.value });
+}
+
+function handleOnHide() {
+    if (imagePath.value && !loading.value && loadDraft('photo')?.state.stage !== 'editing')
+        keepDraft();
+}
+
+function restoreDraft(draft:TaskDraft) {
+    if (draft.state.photoSize)
+        photoStore.setPhotoSize(draft.state.photoSize);
+    if (draft.state.stage === 'editing') {
+        setPhotoPath({ base64: '', base64HD: '', base64Path: draft.files.standard, base64HDPath: draft.files.hd });
+        uni.navigateTo({ url: '/pages/photo/edit?restore=1' });
+        return;
     }
-    this.imagePath=draft.files.source; this.form={...draft.state.form};this.modelIndex=draft.state.modelIndex||0;
-  }
+    imagePath.value = draft.files.source;
+    form.value = { ...draft.state.form };
+    modelIndex.value = draft.state.modelIndex || 0;
+}
 
-  async confirmSelect() {
-    if (this.loading) return;
-    if (!this.imagePath || !this.photoSize || !this.photoSize.pxWidth || !this.photoSize.pxHeight) {
-      uni.showToast({ title: '请选择照片和有效规格', icon: 'none' });
-      return;
+async function confirmSelect() {
+    if (loading.value)
+        return;
+    if (!imagePath.value || !photoSize.value || !photoSize.value.pxWidth || !photoSize.value.pxHeight) {
+        uni.showToast({ title: '请选择照片和有效规格', icon: 'none' });
+        return;
     }
-    this.loading = true;
+    loading.value = true;
     let standardPath = '';
     let hdPath = '';
     try {
-      await this.keepDraft();
-      const form = { ...this.form, height: this.photoSize.pxHeight, width: this.photoSize.pxWidth, dpi: this.photoSize.dpi || 300, hd: true };
-      const data = await GeneratePhoto(form, 'input_image', this.imagePath);
-      if (!data.image_base64_standard || !data.image_base64_hd) throw new Error('服务器未返回完整照片，请重试');
-      standardPath = await writeTemporaryImage(data.image_base64_standard, 'standard');
-      hdPath = await writeTemporaryImage(data.image_base64_hd, 'hd');
-      const photoPath: PhotoPath = {
-        base64: data.image_base64_standard, base64HD: data.image_base64_hd,
-        base64Path: standardPath, base64HDPath: hdPath
-      };
-      this.setPhotoPath(photoPath);
-      await new Promise<void>((resolve, reject) => uni.navigateTo({
-        url: '/pages/photo/edit', success: () => resolve(), fail: () => reject(new Error('打开编辑页面失败，请重试'))
-      }));
-    } catch (err: any) {
-      removeTemporaryImage(standardPath);
-      removeTemporaryImage(hdPath);
-      this.setPhotoPath({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
-      uni.showModal({ title: '制作失败', content: err.message || '照片处理失败，请重试', showCancel: false });
-    } finally { this.loading = false; }
-  }
-  skipTo() {
-    uni.navigateTo({
-      url: '/pages/photo/index'
-    })
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
+        await keepDraft();
+        const requestForm = { ...form.value, height: photoSize.value.pxHeight, width: photoSize.value.pxWidth, dpi: photoSize.value.dpi || 300, hd: true };
+        const data = await GeneratePhoto(requestForm, 'input_image', imagePath.value);
+        if (!data.image_base64_standard || !data.image_base64_hd)
+            throw new Error('服务器未返回完整照片，请重试');
+        standardPath = await writeTemporaryImage(data.image_base64_standard, 'standard');
+        hdPath = await writeTemporaryImage(data.image_base64_hd, 'hd');
+        const photoPath: PhotoPath = {
+            base64: data.image_base64_standard, base64HD: data.image_base64_hd,
+            base64Path: standardPath, base64HDPath: hdPath
+        };
+        setPhotoPath(photoPath);
+        await new Promise<void>((resolve, reject) => uni.navigateTo({
+            url: '/pages/photo/edit', success: () => resolve(), fail: () => reject(new Error('打开编辑页面失败，请重试'))
+        }));
+    }
+    catch (err: any) {
+        removeTemporaryImage(standardPath);
+        removeTemporaryImage(hdPath);
+        setPhotoPath({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
+        uni.showModal({ title: '制作失败', content: err.message || '照片处理失败，请重试', showCancel: false });
+    }
+    finally {
+        loading.value = false;
+    }
 }
+
+function skipTo() {
+    uni.navigateTo({
+        url: '/pages/photo/index'
+    });
+}
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onMounted(handleOnMounted);
+
+onHide(handleOnHide);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>
@@ -625,13 +655,13 @@ $shadow-heavy: 0 16rpx 48rpx rgba(0, 0, 0, 0.12);
   }
 }
 
-.content-container > * {
+.content-container > view {
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.content-container > *:nth-child(1) { animation-delay: 0.1s; }
-.content-container > *:nth-child(2) { animation-delay: 0.2s; }
-.content-container > *:nth-child(3) { animation-delay: 0.3s; }
+.content-container > view:nth-child(1) { animation-delay: 0.1s; }
+.content-container > view:nth-child(2) { animation-delay: 0.2s; }
+.content-container > view:nth-child(3) { animation-delay: 0.3s; }
 
 /* 证件照选择页面 */
 .selection-page { min-height: 100vh; background: #f6f6f6; color: #17191c; box-sizing: border-box; padding: 24rpx 32rpx 250rpx; }
@@ -642,5 +672,6 @@ $shadow-heavy: 0 16rpx 48rpx rgba(0, 0, 0, 0.12);
 .selected-copy { flex: 1; min-width: 0; }.selected-name, .selected-detail { display: block; }.selected-name { font-size: 30rpx; font-weight: 600; }.selected-detail { color: #666b73; font-size: 22rpx; margin-top: 8rpx; }.selected-change { color: #cc3d35; font-size: 26rpx; }
 .advice-content { display: flex; gap: 24rpx; align-items: center; }.advice-image { width: 238rpx; height: 304rpx; border-radius: 12rpx; overflow: hidden; background: #f5f5f5; flex-shrink: 0; }.advice-image image { width: 100%; height: 100%; }.advice-list { flex: 1; display: flex; flex-direction: column; gap: 28rpx; }.advice-row { display: flex; gap: 16rpx; align-items: flex-start; }.advice-sun { font-size: 44rpx; line-height: 1; color: #20242a; width: 44rpx; text-align: center; flex-shrink: 0; }.advice-name, .advice-detail { display: block; }.advice-name { font-size: 27rpx; font-weight: 600; }.advice-detail { margin-top: 5rpx; color: #666b73; font-size: 23rpx; line-height: 1.4; }
 .advanced-heading, .advanced-heading > view { display: flex; align-items: center; }.advanced-heading { justify-content: space-between; min-height: 50rpx; font-size: 29rpx; font-weight: 600; }.advanced-heading > view { gap: 16rpx; }.advanced-content { padding-top: 18rpx; }.advanced-row { display: flex; justify-content: space-between; align-items: center; min-height: 88rpx; border-top: 1rpx solid #e8eaed; font-size: 27rpx; }.advanced-slider { border-top: 1rpx solid #e8eaed; padding-top: 20rpx; font-size: 27rpx; }
+.specification-note { color: #666b73; font-size: 23rpx; line-height: 1.6; margin: 12rpx 0; }
 .selection-actions { position: fixed; z-index: 10; left: 0; right: 0; bottom: 0; background: #f6f6f6; padding: 18rpx 32rpx calc(24rpx + env(safe-area-inset-bottom)); }.selection-privacy { display: flex; align-items: center; justify-content: center; gap: 8rpx; color: #666b73; font-size: 23rpx; margin-bottom: 22rpx; }.selection-buttons { display: flex; gap: 16rpx; }.selection-secondary, .selection-primary { flex: 1; min-height: 96rpx; border-radius: 20rpx; display: flex; justify-content: center; align-items: center; font-size: 30rpx; font-weight: 600; }.selection-secondary { background: white; color: #17191c; }.selection-primary { background: #cc3d35; color: white; }
 </style>

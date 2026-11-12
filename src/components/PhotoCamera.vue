@@ -61,149 +61,205 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
 
-@Component({})
-export default class PhotoCamera extends Vue {
-  @Prop({ type: String, default: '拍摄照片' }) readonly title!: string;
-  @Prop({ type: String, default: '检查照片清晰且内容完整' }) readonly previewTip!: string;
-  @Prop({ type: Boolean, default: true }) readonly guideInitiallyEnabled!: boolean;
-  @Prop({ type: String, default: 'front' }) readonly initialPosition!: 'front' | 'back';
+import { ref, type PropType, onBeforeUnmount } from 'vue';
 
-  showCamera = true;
-  cameraPosition: 'front' | 'back' = 'front';
-  cameraReady = false;
-  cameraError = '';
-  capturing = false;
-  cameraSession = 0;
-  capturedImagePath = '';
-  showCapturePreview = false;
-  guideEnabled = true;
-  disposed = false;
+const props = defineProps({
+  title: { default: '拍摄照片' , type: String as PropType<string> },
+  previewTip: { default: '检查照片清晰且内容完整' , type: String as PropType<string> },
+  guideInitiallyEnabled: { default: true , type: Boolean as PropType<boolean> },
+  initialPosition: { default: 'front' , type: String as PropType<'front' | 'back'> }
+});
 
-  created() {
-    this.guideEnabled = this.guideInitiallyEnabled;
-    this.cameraPosition = this.initialPosition === 'back' ? 'back' : 'front';
-  }
+const emit = defineEmits(["close","select"]);
 
-  beforeDestroy() { this.disposed = true; this.cameraSession++; }
-  toggleGuide() { this.guideEnabled = !this.guideEnabled; }
+const showCamera = ref(true);
 
-  openCamera() {
-    this.cameraSession++;
-    this.cameraReady = false;
-    this.cameraError = '';
-    this.capturing = false;
-    this.showCamera = true;
-  }
+const cameraPosition = ref<'front' | 'back'>('front');
 
-  closeCamera() {
-    this.cameraSession++;
-    this.showCamera = false;
-    this.showCapturePreview = false;
-    this.cameraReady = false;
-    this.capturing = false;
-    this.$emit('close');
-  }
+const cameraReady = ref(false);
 
-  switchCamera() {
-    if (this.capturing) return;
-    this.cameraPosition = this.cameraPosition === 'front' ? 'back' : 'front';
-  }
+const cameraError = ref('');
 
-  capturePhoto() {
-    if (this.capturing || !this.showCamera || this.cameraError) return;
-    if (!this.cameraReady) { uni.showToast({ title: '相机正在启动，请稍候', icon: 'none' }); return; }
-    this.capturing = true;
-    const session = this.cameraSession;
+const capturing = ref(false);
+
+const cameraSession = ref(0);
+
+const capturedImagePath = ref('');
+
+const showCapturePreview = ref(false);
+
+const guideEnabled = ref(true);
+
+const disposed = ref(false);
+
+function created() {
+    guideEnabled.value = props.guideInitiallyEnabled;
+    cameraPosition.value = props.initialPosition === 'back' ? 'back' : 'front';
+}
+
+function handleOnBeforeUnmount() {
+    disposed.value = true;
+    cameraSession.value++;
+}
+
+function toggleGuide() {
+    guideEnabled.value = !guideEnabled.value;
+}
+
+function openCamera() {
+    cameraSession.value++;
+    cameraReady.value = false;
+    cameraError.value = '';
+    capturing.value = false;
+    showCamera.value = true;
+}
+
+function closeCamera() {
+    cameraSession.value++;
+    showCamera.value = false;
+    showCapturePreview.value = false;
+    cameraReady.value = false;
+    capturing.value = false;
+    emit('close');
+}
+
+function switchCamera() {
+    if (capturing.value)
+        return;
+    cameraPosition.value = cameraPosition.value === 'front' ? 'back' : 'front';
+}
+
+function capturePhoto() {
+    if (capturing.value || !showCamera.value || cameraError.value)
+        return;
+    if (!cameraReady.value) {
+        uni.showToast({ title: '相机正在启动，请稍候', icon: 'none' });
+        return;
+    }
+    capturing.value = true;
+    const session = cameraSession.value;
     const fail = () => {
-      if (this.disposed || session !== this.cameraSession || !this.showCamera) return;
-      this.capturing = false;
-      uni.showToast({ title: '拍照失败，请重试', icon: 'none' });
+        if (disposed.value || session !== cameraSession.value || !showCamera.value)
+            return;
+        capturing.value = false;
+        uni.showToast({ title: '拍照失败，请重试', icon: 'none' });
     };
     try {
-      uni.createCameraContext().takePhoto({
-        quality: 'high',
-        success: (res) => {
-          if (this.disposed || session !== this.cameraSession || !this.showCamera) return;
-          if (!res.tempImagePath) { fail(); return; }
-          this.capturing = false;
-          this.capturedImagePath = res.tempImagePath;
-          this.showCamera = false;
-          this.cameraReady = false;
-          this.showCapturePreview = true;
-        },
-        fail
-      });
-    } catch (_) { fail(); }
-  }
+        uni.createCameraContext().takePhoto({
+            quality: 'high',
+            success: (res) => {
+                if (disposed.value || session !== cameraSession.value || !showCamera.value)
+                    return;
+                if (!res.tempImagePath) {
+                    fail();
+                    return;
+                }
+                capturing.value = false;
+                capturedImagePath.value = res.tempImagePath;
+                showCamera.value = false;
+                cameraReady.value = false;
+                showCapturePreview.value = true;
+            },
+            fail
+        });
+    }
+    catch (_) {
+        fail();
+    }
+}
 
-  retakePhoto() {
-    this.showCapturePreview = false;
-    this.capturedImagePath = '';
-    this.openCamera();
-  }
+function retakePhoto() {
+    showCapturePreview.value = false;
+    capturedImagePath.value = '';
+    openCamera();
+}
 
-  confirmCapture() {
-    if (!this.showCapturePreview) return;
-    if (!this.capturedImagePath) { uni.showToast({ title: '请重新拍摄照片', icon: 'none' }); return; }
-    const path = this.capturedImagePath;
-    this.cameraSession++;
-    this.showCapturePreview = false;
-    this.$emit('select', path);
-  }
+function confirmCapture() {
+    if (!showCapturePreview.value)
+        return;
+    if (!capturedImagePath.value) {
+        uni.showToast({ title: '请重新拍摄照片', icon: 'none' });
+        return;
+    }
+    const path = capturedImagePath.value;
+    cameraSession.value++;
+    showCapturePreview.value = false;
+    emit('select', path);
+}
 
-  onCameraReady() { if (this.showCamera && !this.cameraError) this.cameraReady = true; }
-  onCameraStop() {
-    if (!this.showCamera || this.cameraError) return;
-    this.cameraSession++;
-    this.cameraReady = false;
-    this.capturing = false;
-    this.cameraError = '相机已中断，请重新打开或从相册选择照片。';
-  }
-  onCameraError() {
-    if (!this.showCamera) return;
-    this.cameraSession++;
-    this.cameraReady = false;
-    this.capturing = false;
-    this.cameraError = '请检查微信和手机的相机权限，或从相册选择照片。';
-  }
-  retryCamera() { this.openCamera(); }
-  openCameraSettings() {
-    const session = this.cameraSession;
+function onCameraReady() {
+    if (showCamera.value && !cameraError.value)
+        cameraReady.value = true;
+}
+
+function onCameraStop() {
+    if (!showCamera.value || cameraError.value)
+        return;
+    cameraSession.value++;
+    cameraReady.value = false;
+    capturing.value = false;
+    cameraError.value = '相机已中断，请重新打开或从相册选择照片。';
+}
+
+function onCameraError() {
+    if (!showCamera.value)
+        return;
+    cameraSession.value++;
+    cameraReady.value = false;
+    capturing.value = false;
+    cameraError.value = '请检查微信和手机的相机权限，或从相册选择照片。';
+}
+
+function retryCamera() {
+    openCamera();
+}
+
+function openCameraSettings() {
+    const session = cameraSession.value;
     uni.openSetting({
-      success: (res: any) => {
-        if (!this.disposed && session === this.cameraSession && res.authSetting && res.authSetting['scope.camera']) this.retryCamera();
-      },
-      fail: () => {
-        if (!this.disposed && session === this.cameraSession) uni.showToast({ title: '无法打开设置，请在微信中检查相机权限', icon: 'none' });
-      }
+        success: (res: any) => {
+            if (!disposed.value && session === cameraSession.value && res.authSetting && res.authSetting['scope.camera'])
+                retryCamera();
+        },
+        fail: () => {
+            if (!disposed.value && session === cameraSession.value)
+                uni.showToast({ title: '无法打开设置，请在微信中检查相机权限', icon: 'none' });
+        }
     });
-  }
+}
 
-  chooseFromAlbum() {
-    if (this.capturing || !this.showCamera) return;
-    this.cameraSession++;
-    const session = this.cameraSession;
-    this.showCamera = false;
-    this.cameraReady = false;
+function chooseFromAlbum() {
+    if (capturing.value || !showCamera.value)
+        return;
+    cameraSession.value++;
+    const session = cameraSession.value;
+    showCamera.value = false;
+    cameraReady.value = false;
     const select = (path: string) => {
-      if (this.disposed || session !== this.cameraSession) return;
-      if (!path) { this.openCamera(); return; }
-      this.cameraSession++;
-      this.$emit('select', path);
+        if (disposed.value || session !== cameraSession.value)
+            return;
+        if (!path) {
+            openCamera();
+            return;
+        }
+        cameraSession.value++;
+        emit('select', path);
     };
-    const cancel = () => { if (!this.disposed && session === this.cameraSession) this.openCamera(); };
+    const cancel = () => { if (!disposed.value && session === cameraSession.value)
+        openCamera(); };
     // #ifdef H5
     uni.chooseImage({ count: 1, sourceType: ['album'], success: res => select(res.tempFilePaths[0]), fail: cancel });
     // #endif
     // #ifdef MP-WEIXIN
     uni.chooseMedia({ count: 1, mediaType: ['image'], sourceType: ['album'], success: res => select(res.tempFiles[0].tempFilePath), fail: cancel });
     // #endif
-  }
 }
+
+created();
+
+onBeforeUnmount(handleOnBeforeUnmount);
 </script>
 
 <style lang="scss" scoped>

@@ -4,6 +4,7 @@ import queue
 import sqlite3
 import threading
 import time
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -62,7 +63,7 @@ class MetricsWriter:
 
     def _write(self, batch):
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        with sqlite3.connect(str(self.path), timeout=0.3) as db:
+        with closing(sqlite3.connect(str(self.path), timeout=0.3)) as db, db:
             os.chmod(self.path, 0o600)
             db.execute('''CREATE TABLE IF NOT EXISTS metrics (
                 hour TEXT NOT NULL, route TEXT NOT NULL, status_class INTEGER NOT NULL,
@@ -86,7 +87,7 @@ def read_metrics(days=7):
         return {'available': True, 'first_observed_at': None, 'rows': [], 'retention_days': RETENTION_DAYS}
     try:
         uri = 'file:' + quote(str(TELEMETRY_PATH)) + '?mode=ro'
-        with sqlite3.connect(uri, uri=True, timeout=0.5) as db:
+        with closing(sqlite3.connect(uri, uri=True, timeout=0.5)) as db:
             db.row_factory = sqlite3.Row
             first = db.execute('SELECT MIN(hour) FROM metrics').fetchone()[0]
             cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%dT%H:00:00Z')

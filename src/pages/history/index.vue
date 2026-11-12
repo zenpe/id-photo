@@ -68,220 +68,204 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from "vue-property-decorator";
+<script setup lang="ts">
 import StorageManager, { PhotoRecord } from '@/utils/storage';
 import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file';
 import InlineState from '@/components/InlineState.vue';
-
 // 声明微信小程序类型
 declare const wx: any;
+import { productConfig } from '@/config';
+import { usePhotoStore } from '@/store/modules/photo';
+import { ref } from 'vue';
+import { onLoad, onShow, onUnload, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { InlineState } })
-export default class History extends Vue {
-  historyList: PhotoRecord[] = [];
-  showActions: boolean = false;
-  showClearModal: boolean = false;
-  selectedItem: PhotoRecord | null = null;
-  previewFiles: string[] = [];
+const photoStore = usePhotoStore();
 
-  actionList = [
+const historyList = ref<PhotoRecord[]>([]);
+
+const showActions = ref<boolean>(false);
+
+const showClearModal = ref<boolean>(false);
+
+const selectedItem = ref<PhotoRecord | null>(null);
+
+const previewFiles = ref<string[]>([]);
+
+const actionList = ref([
     {
-      name: '查看详情',
-      id: 'view'
+        name: '查看详情',
+        id: 'view'
     },
     {
-      name: '按此规格重新制作',
-      id: 'edit'
+        name: '按此规格重新制作',
+        id: 'edit'
     },
     {
-      name: '删除',
-      id: 'delete',
-      color: '#f56c6c'
+        name: '删除',
+        id: 'delete',
+        color: '#f56c6c'
     }
-  ];
+]);
 
-  onLoad() {
-    this.loadHistory();
+function handleOnLoad() {
+    loadHistory();
     // 显示分享菜单，包括分享到朋友圈
     // #ifdef MP-WEIXIN
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: (res: any) => {
-        console.log('显示分享菜单成功', res);
-      },
-      fail: (err: any) => {
-        console.log('显示分享菜单失败', err);
-      }
+        menus: ['shareAppMessage', 'shareTimeline'],
+        fail: () => {
+            // No shareTimeline permission on some AppIDs: keep the basic share entry.
+            wx.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+        }
     });
     // #endif
-  }
+}
 
-  onShow() {
-    this.loadHistory();
-  }
+function handleOnShow() {
+    loadHistory();
+}
 
-  /**
-   * 加载历史记录
-   */
-  loadHistory() {
-    this.historyList = StorageManager.getPhotoHistory();
-  }
+function loadHistory() {
+    historyList.value = StorageManager.getPhotoHistory();
+}
 
-  /**
-   * 返回上一页
-   */
-  goBack() {
+function goBack() {
     uni.navigateBack();
-  }
+}
 
-  /**
-   * 跳转到创建页面
-   */
-  goToCreate() {
+function goToCreate() {
     uni.switchTab({
-      url: '/pages/index/index'
+        url: '/pages/index/index'
     });
-  }
+}
 
-  /**
-   * 查看历史记录详情
-   */
-  async viewHistory(item: PhotoRecord) {
+async function viewHistory(item: PhotoRecord) {
     try {
-      let path = item.resultImages && item.resultImages.idPhoto;
-      if (!path) throw new Error('照片已失效，请重新制作');
-      if (path.startsWith('data:image/')) {
-        path = await writeTemporaryImage(path, 'history');
-        this.previewFiles.push(path);
-      }
-      uni.previewImage({ current: path, urls: [path], fail: () => uni.showToast({ title: '照片已失效，请重新制作', icon: 'none' }) });
-    } catch (error: any) {
-      uni.showToast({ title: error.message || '照片无法预览', icon: 'none' });
+        let path = item.resultImages && item.resultImages.idPhoto;
+        if (!path)
+            throw new Error('照片已失效，请重新制作');
+        if (path.startsWith('data:image/')) {
+            path = await writeTemporaryImage(path, 'history');
+            previewFiles.value.push(path);
+        }
+        uni.previewImage({ current: path, urls: [path], fail: () => uni.showToast({ title: '照片已失效，请重新制作', icon: 'none' }) });
     }
-  }
+    catch (error: any) {
+        uni.showToast({ title: error.message || '照片无法预览', icon: 'none' });
+    }
+}
 
-  onUnload() { this.previewFiles.forEach(removeTemporaryImage); this.previewFiles = []; }
+function handleOnUnload() {
+    previewFiles.value.forEach(removeTemporaryImage);
+    previewFiles.value = [];
+}
 
-  /**
-   * 清空所有历史记录
-   */
-  clearAllHistory() {
+function clearAllHistory() {
     StorageManager.clearPhotoHistory();
-    this.historyList = [];
-    this.showClearModal = false;
+    historyList.value = [];
+    showClearModal.value = false;
     uni.showToast({
-      title: '已清空历史记录',
-      icon: 'success'
+        title: '已清空历史记录',
+        icon: 'success'
     });
-  }
+}
 
-  /**
-   * 显示操作菜单
-   */
-  showActionSheet(item: PhotoRecord) {
-    this.selectedItem = item;
-    this.showActions = true;
-  }
+function showActionSheet(item: PhotoRecord) {
+    selectedItem.value = item;
+    showActions.value = true;
+}
 
-  /**
-   * 处理操作选择
-   */
-  onActionSelect(action: any) {
-    if (!this.selectedItem) return;
-
+function onActionSelect(action: any) {
+    if (!selectedItem.value)
+        return;
     switch (action.id) {
-      case 'view':
-        this.viewHistory(this.selectedItem);
-        break;
-      case 'edit':
-        this.editHistory(this.selectedItem);
-        break;
-      case 'delete':
-        this.deleteHistory(this.selectedItem);
-        break;
+        case 'view':
+            viewHistory(selectedItem.value);
+            break;
+        case 'edit':
+            editHistory(selectedItem.value);
+            break;
+        case 'delete':
+            deleteHistory(selectedItem.value);
+            break;
     }
-    
-    this.showActions = false;
-    this.selectedItem = null;
-  }
+    showActions.value = false;
+    selectedItem.value = null;
+}
 
-  /**
-   * 编辑历史记录
-   */
-  editHistory(item: PhotoRecord) {
+function editHistory(item: PhotoRecord) {
     const size = item.parameters && item.parameters.size;
     if (!size || !Number.isFinite(Number(size.pxWidth)) || !Number.isFinite(Number(size.pxHeight)) || Number(size.pxWidth) <= 0 || Number(size.pxHeight) <= 0) {
-      uni.showToast({ title: '历史规格已失效，请重新选择', icon: 'none' }); return;
+        uni.showToast({ title: '历史规格已失效，请重新选择', icon: 'none' });
+        return;
     }
-    this.$store.commit('SET_PHOTO_SIZE', size);
+    photoStore.setPhotoSize(size);
     uni.navigateTo({ url: '/pages/photo/index' });
-  }
+}
 
-  /**
-   * 删除历史记录
-   */
-  deleteHistory(item: PhotoRecord) {
+function deleteHistory(item: PhotoRecord) {
     uni.showModal({
-      title: '确认删除',
-      content: '确定要删除这条记录吗？',
-      success: (res) => {
-        if (res.confirm) {
-          StorageManager.deletePhotoRecord(item.id);
-          this.loadHistory();
-          uni.showToast({
-            title: '删除成功',
-            icon: 'success'
-          });
+        title: '确认删除',
+        content: '确定要删除这条记录吗？',
+        success: (res) => {
+            if (res.confirm) {
+                StorageManager.deletePhotoRecord(item.id);
+                loadHistory();
+                uni.showToast({
+                    title: '删除成功',
+                    icon: 'success'
+                });
+            }
         }
-      }
     });
-  }
+}
 
-  /**
-   * 格式化时间
-   */
-  formatTime(timestamp: number): string {
+function formatTime(timestamp: number): string {
     const date = new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    
     if (diff < 60000) { // 1分钟内
-      return '刚刚';
-    } else if (diff < 3600000) { // 1小时内
-      return Math.floor(diff / 60000) + '分钟前';
-    } else if (diff < 86400000) { // 1天内
-      return Math.floor(diff / 3600000) + '小时前';
-    } else if (diff < 604800000) { // 1周内
-      return Math.floor(diff / 86400000) + '天前';
-    } else {
-      return date.toLocaleDateString();
+        return '刚刚';
     }
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
+    else if (diff < 3600000) { // 1小时内
+        return Math.floor(diff / 60000) + '分钟前';
+    }
+    else if (diff < 86400000) { // 1天内
+        return Math.floor(diff / 3600000) + '小时前';
+    }
+    else if (diff < 604800000) { // 1周内
+        return Math.floor(diff / 86400000) + '天前';
+    }
+    else {
+        return date.toLocaleDateString();
+    }
 }
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onLoad(handleOnLoad);
+
+onShow(handleOnShow);
+
+onUnload(handleOnUnload);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

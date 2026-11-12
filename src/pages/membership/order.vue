@@ -44,74 +44,154 @@
     </template>
   </view>
 </template>
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
 import InlineState from '@/components/InlineState.vue';
 import { getMembershipOrder, refreshMembershipOrder, requestMembershipRefund, MembershipOrder, formatFen, formatMemberDate } from '@/api/membership';
 
-@Component({ components: { InlineState } })
-export default class Order extends Vue {
-  orderNo = '';
-  order: MembershipOrder | null = null;
-  loading = true;
-  error = '';
-  showRefundForm = false;
-  submitting = false;
-  reason = '';
+import { ref, computed } from 'vue';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 
-  get invalidOrderNo() { return !this.orderNo || this.orderNo === 'undefined' || this.orderNo === 'null'; }
-  get retryActionText() { return this.invalidOrderNo ? '查看购买记录' : '重新查询'; }
-  onLoad(options: any) { this.orderNo = typeof options.order_no === 'string' ? options.order_no : ''; this.load(); }
-  onShow() { if (this.order && !this.loading) this.load(); }
-  async load() {
-    if (this.invalidOrderNo) { this.error = '订单编号缺失，请从购买记录重新打开。'; this.loading = false; return; }
-    this.loading = true;
-    this.error = '';
-    try {
-      this.order = await getMembershipOrder(this.orderNo);
-      if (!this.order || this.order.order_no !== this.orderNo) throw new Error('订单数据无法读取，请重新查询');
-    } catch (error: any) {
-      this.order = null;
-      this.error = error.statusCode === 404 ? '未找到该订单，请返回购买记录重新打开。' : (error.message || '请检查网络后重新查询');
-    } finally { this.loading = false; }
-    if (this.order && this.order.status === 'pending') this.refresh(true);
-  }
-  retry() { if (this.invalidOrderNo) this.goOrders(); else this.load(); }
-  goOrders() { uni.redirectTo({ url: '/pages/membership/orders' }); }
-  async refresh(silent = false) {
-    if (this.invalidOrderNo || this.loading) return;
-    this.loading = true;
-    try {
-      await refreshMembershipOrder(this.orderNo);
-      this.order = await getMembershipOrder(this.orderNo);
-      if (!silent) uni.showToast({ title: '已更新订单状态', icon: 'none' });
-    } catch (error: any) {
-      if (!silent) uni.showToast({ title: error.message || '订单确认中，请稍后重试', icon: 'none' });
-    } finally { this.loading = false; }
-  }
-  cancelRefund() { if (!this.submitting) { this.showRefundForm = false; this.reason = ''; } }
-  async submitRefund() {
-    const reason = this.reason.trim();
-    if (this.submitting || !this.order) return;
-    if (reason.length < 2) { uni.showToast({ title: '请填写退款原因', icon: 'none' }); return; }
-    this.submitting = true;
-    try {
-      const refund = await requestMembershipRefund(this.orderNo, reason);
-      if (this.order) this.order = { ...this.order, refund_request: refund };
-      this.reason = '';
-      this.showRefundForm = false;
-      uni.showModal({ title: '申请已提交', content: '商家会核实并处理。申请提交不代表退款已完成，请在此查看进度。', showCancel: false });
-    } catch (error: any) {
-      uni.showModal({ title: '暂无法提交申请', content: error.message || '请稍后重试', showCancel: false });
-    } finally { this.submitting = false; }
-  }
-  copyAppleLink() { uni.setClipboardData({ data: 'https://reportaproblem.apple.com' }); }
-  price(value: number) { return formatFen(value); }
-  date(value: string) { return formatMemberDate(value); }
-  refundStatus(value: string) { return ({ submitted: '申请已提交', processing: '申请处理中', closed: '申请已处理' } as any)[value] || '申请处理中'; }
-  statusText(value: string) { return ({ paid: '订单已完成', pending: '订单确认中', cancelled: '订单已取消', closed: '订单已关闭', failed: '订单未完成', refunded: '订单已退款' } as any)[value] || '订单处理中'; }
+const orderNo = ref('');
+
+const order = ref<MembershipOrder | null>(null);
+
+const loading = ref(true);
+
+const error = ref('');
+
+const showRefundForm = ref(false);
+
+const submitting = ref(false);
+
+const reason = ref('');
+
+const invalidOrderNo = computed(() => {
+    return !orderNo.value || orderNo.value === 'undefined' || orderNo.value === 'null';
+});
+
+const retryActionText = computed(() => {
+    return invalidOrderNo.value ? '查看购买记录' : '重新查询';
+});
+
+function handleOnLoad(options: any) {
+    orderNo.value = typeof options.order_no === 'string' ? options.order_no : '';
+    load();
 }
+
+function handleOnShow() {
+    if (order.value && !loading.value)
+        load();
+}
+
+async function load() {
+    if (invalidOrderNo.value) {
+        error.value = '订单编号缺失，请从购买记录重新打开。';
+        loading.value = false;
+        return;
+    }
+    loading.value = true;
+    error.value = '';
+    try {
+        order.value = await getMembershipOrder(orderNo.value);
+        if (!order.value || order.value.order_no !== orderNo.value)
+            throw new Error('订单数据无法读取，请重新查询');
+    }
+    catch (failure: any) {
+        order.value = null;
+        error.value = failure.statusCode === 404 ? '未找到该订单，请返回购买记录重新打开。' : (failure.message || '请检查网络后重新查询');
+    }
+    finally {
+        loading.value = false;
+    }
+    if (order.value && order.value.status === 'pending')
+        refresh(true);
+}
+
+function retry() {
+    if (invalidOrderNo.value)
+        goOrders();
+    else
+        load();
+}
+
+function goOrders() {
+    uni.redirectTo({ url: '/pages/membership/orders' });
+}
+
+async function refresh(silent = false) {
+    if (invalidOrderNo.value || loading.value)
+        return;
+    loading.value = true;
+    try {
+        await refreshMembershipOrder(orderNo.value);
+        order.value = await getMembershipOrder(orderNo.value);
+        if (!silent)
+            uni.showToast({ title: '已更新订单状态', icon: 'none' });
+    }
+    catch (failure: any) {
+        if (!silent)
+            uni.showToast({ title: failure.message || '订单确认中，请稍后重试', icon: 'none' });
+    }
+    finally {
+        loading.value = false;
+    }
+}
+
+function cancelRefund() {
+    if (!submitting.value) {
+        showRefundForm.value = false;
+        reason.value = '';
+    }
+}
+
+async function submitRefund() {
+    const refundReason = reason.value.trim();
+    if (submitting.value || !order.value)
+        return;
+    if (refundReason.length < 2) {
+        uni.showToast({ title: '请填写退款原因', icon: 'none' });
+        return;
+    }
+    submitting.value = true;
+    try {
+        const refund = await requestMembershipRefund(orderNo.value, refundReason);
+        if (order.value)
+            order.value = { ...order.value, refund_request: refund };
+        reason.value = '';
+        showRefundForm.value = false;
+        uni.showModal({ title: '申请已提交', content: '商家会核实并处理。申请提交不代表退款已完成，请在此查看进度。', showCancel: false });
+    }
+    catch (failure: any) {
+        uni.showModal({ title: '暂无法提交申请', content: failure.message || '请稍后重试', showCancel: false });
+    }
+    finally {
+        submitting.value = false;
+    }
+}
+
+function copyAppleLink() {
+    uni.setClipboardData({ data: 'https://reportaproblem.apple.com' });
+}
+
+function price(value: number) {
+    return formatFen(value);
+}
+
+function date(value: string) {
+    return formatMemberDate(value);
+}
+
+function refundStatus(value: string) {
+    return ({ submitted: '申请已提交', processing: '申请处理中', closed: '申请已处理' } as any)[value] || '申请处理中';
+}
+
+function statusText(value: string) {
+    return ({ paid: '订单已完成', pending: '订单确认中', cancelled: '订单已取消', closed: '订单已关闭', failed: '订单未完成', refunded: '订单已退款' } as any)[value] || '订单处理中';
+}
+
+onLoad(handleOnLoad);
+
+onShow(handleOnShow);
 </script>
 <style lang="scss" scoped>
 @import '@/assets/design-tokens.scss';

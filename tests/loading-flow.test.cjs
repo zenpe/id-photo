@@ -10,32 +10,10 @@ function deferred() {
   return { promise, resolve, reject };
 }
 function loadComponent(file, modules, uni) {
-  const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-  const script = source.match(/<script lang="ts">([\s\S]*?)<\/script>/);
-  assert(script, `missing TypeScript in ${file}`);
-  const code = ts.transpileModule(script[1], { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019, experimentalDecorators: true } }).outputText;
-  const mod = { exports: {} };
-  const decorator = () => () => {};
-  const common = {
-    vue: { __esModule: true, default: class Vue {} },
-    'vue-property-decorator': { Component: () => target => target, Prop: decorator, Watch: decorator },
-    'vuex-class': { Getter: decorator, Mutation: decorator },
-    '@/components/LoadingOverlay.vue': { __esModule: true, default: {} },
-    '@/utils/task-draft': {rememberDraft:async()=>{},loadDraft:()=>null},
-  '@/components/DraftResume.vue': {__esModule:true,default:{}},
-  '@/components/PhotoCamera.vue': { __esModule: true, default: {} },
-  };
-  vm.runInNewContext(code, { module: mod, exports: mod.exports, require(name) {
-    if(name==='@/utils/album') {
-      const album={exports:{}};
-      const code=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/utils/album.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-      vm.runInNewContext(code,{module:album,exports:album.exports,uni,Promise,Error});return album.exports;
-    }
-    if (name in modules) return modules[name];
-    if (name in common) return common[name];
-    throw Error(`unexpected import ${name}`);
-  }, uni, Promise, Error, Number, Math, JSON, console });
-  return mod.exports.default;
+  return require('./helpers/component.cjs').loadComponent(file, {
+    '@/utils/task-draft': { rememberDraft: async () => {}, loadDraft: () => null },
+    ...modules
+  }, uni);
 }
 const noop = () => {};
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -124,8 +102,8 @@ async function photoFlow() {
     '@/utils/image-file': { writeTemporaryImage: async () => '/tmp/result.png', removeTemporaryImage: noop }
   }, { saveImageToPhotosAlbum(options) { saved=options; }, showToast:noop, showModal() { modal++; } });
   const page = new Page();
-  page.photoPath = {base64Path:'/tmp/source.png',base64HDPath:'/tmp/source.png'};
-  page.photoSize = {name:'test',dpi:300,pxWidth:295,pxHeight:413};
+  page.photoStore.setPhotoPath({base64Path:'/tmp/source.png',base64HDPath:'/tmp/source.png'});
+  page.photoStore.setPhotoSize({name:'test',dpi:300,pxWidth:295,pxHeight:413});
   let operation = page.save();
   assert.strictEqual(page.busy, true); assert.strictEqual(page.processing, false, 'do not cover the ad');
   ad.resolve(null); await operation;

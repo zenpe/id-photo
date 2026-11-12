@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 DATA_DIR = Path(os.environ.get('IDPHOTO_DATA_DIR', Path(__file__).resolve().parent / '.miniapp_data'))
 DB_PATH = DATA_DIR / 'membership.sqlite3'
@@ -239,7 +239,7 @@ def order(order_no: str, request: Request):
 class RefundRequestInput(BaseModel):
     reason: str = Field(min_length=2, max_length=200)
 
-    @validator('reason')
+    @field_validator('reason')
     def reason_not_blank(cls, value):
         value = value.strip()
         if len(value) < 2:

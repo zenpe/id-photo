@@ -52,23 +52,21 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import { productConfig } from '@/config';
-import { Component, Prop } from "vue-property-decorator";
-
 // 声明微信小程序类型
 declare const wx: any;
+import { ref, type PropType } from 'vue';
 
-@Component({})
-export default class ShareButton extends Vue {
-  @Prop({ type: String, default: '/pages/index/index' }) sharePath!: string;
-  @Prop({ type: String, default: productConfig.name + ' - 图片制作与证件照编辑' }) shareTitle!: string;
-  @Prop({ type: String, default: '/static/example.jpeg' }) shareImage!: string;
-  
-  showSharePopup: boolean = false;
-  
-  cancelButtonStyle = {
+const props = defineProps({
+  sharePath: { default: '/pages/index/index' , type: String as PropType<string> },
+  shareTitle: { default: productConfig.shareTitle , type: String as PropType<string> },
+  shareImage: { default: '/static/example.jpeg' , type: String as PropType<string> }
+});
+
+const showSharePopup = ref<boolean>(false);
+
+const cancelButtonStyle = ref({
     width: '100%',
     height: '96rpx',
     borderRadius: '48rpx',
@@ -76,161 +74,131 @@ export default class ShareButton extends Vue {
     fontWeight: 'bold',
     borderColor: '#E8E8E8',
     color: '#666'
-  };
+});
 
-  /**
-   * 显示分享菜单
-   */
-  showShareMenu() {
-    this.showSharePopup = true;
-  }
+function showShareMenu() {
+    showSharePopup.value = true;
+}
 
-  /**
-   * 关闭分享菜单
-   */
-  closeShareMenu() {
-    this.showSharePopup = false;
-  }
+function closeShareMenu() {
+    showSharePopup.value = false;
+}
 
-  /**
-   * 分享到朋友圈
-   */
-  shareToMoments() {
-    this.closeShareMenu();
-    
+function shareToMoments() {
+    closeShareMenu();
     // 检查是否支持分享到朋友圈
     if (wx.updateShareMenu) {
-      wx.updateShareMenu({
-        withShareTicket: true,
-        success: () => {
-          // 触发分享
-          uni.showShareMenu({
+        wx.updateShareMenu({
             withShareTicket: true,
-            menus: ['shareAppMessage', 'shareTimeline'],
             success: () => {
-              console.log('分享菜单显示成功');
-              uni.showToast({
-                title: '请点击右上角分享到朋友圈',
-                icon: 'none',
-                duration: 2000
-              });
+                // 触发分享
+                uni.showShareMenu({
+                    withShareTicket: true,
+                    menus: ['shareAppMessage', 'shareTimeline'],
+                    success: () => {
+                        uni.showToast({
+                            title: '请点击右上角分享到朋友圈',
+                            icon: 'none',
+                            duration: 2000
+                        });
+                    },
+                    fail: () => {
+                        fallbackShare();
+                    }
+                });
             },
-            fail: (err: any) => {
-              console.error('分享菜单显示失败:', err);
-              this.fallbackShare();
+            fail: () => {
+                fallbackShare();
             }
-          });
-        },
-        fail: () => {
-          this.fallbackShare();
-        }
-      });
-    } else {
-      this.fallbackShare();
+        });
     }
-  }
+    else {
+        fallbackShare();
+    }
+}
 
-  /**
-   * 分享给朋友
-   */
-  shareToFriend() {
-    this.closeShareMenu();
-    
+function shareToFriend() {
+    closeShareMenu();
     // 检查是否支持分享功能
     if (uni.share) {
-      uni.share({
-        provider: 'weixin',
-        scene: 'WXSceneSession',
-        type: 0,
-        href: this.getShareUrl(),
-        title: this.shareTitle,
-        summary: '图片制作与证件照编辑，支持常用规格与背景处理',
-        imageUrl: this.getAbsoluteImageUrl(),
-        success: () => {
-          uni.showToast({
-            title: '分享成功',
-            icon: 'success'
-          });
-        },
-        fail: (err: any) => {
-          console.error('分享失败:', err);
-          this.fallbackShare();
-        }
-      });
-    } else {
-      this.fallbackShare();
+        uni.share({
+            provider: 'weixin',
+            scene: 'WXSceneSession',
+            type: 0,
+            href: getShareUrl(),
+            title: props.shareTitle,
+            summary: '图片制作与证件照编辑，支持常用规格与背景处理',
+            imageUrl: getAbsoluteImageUrl(),
+            success: () => {
+                uni.showToast({
+                    title: '分享成功',
+                    icon: 'success'
+                });
+            },
+            fail: () => {
+                fallbackShare();
+            }
+        });
     }
-  }
+    else {
+        fallbackShare();
+    }
+}
 
-  /**
-   * 复制链接
-   */
-  copyLink() {
-    this.closeShareMenu();
-    
-    const shareUrl = this.getShareUrl();
-    
+function copyLink() {
+    closeShareMenu();
+    const shareUrl = getShareUrl();
     uni.setClipboardData({
-      data: shareUrl,
-      success: () => {
-        uni.showToast({
-          title: '链接已复制',
-          icon: 'success'
-        });
-      },
-      fail: () => {
-        uni.showToast({
-          title: '复制失败',
-          icon: 'none'
-        });
-      }
+        data: shareUrl,
+        success: () => {
+            uni.showToast({
+                title: '链接已复制',
+                icon: 'success'
+            });
+        },
+        fail: () => {
+            uni.showToast({
+                title: '复制失败',
+                icon: 'none'
+            });
+        }
     });
-  }
+}
 
-  /**
-   * 获取分享链接
-   */
-  getShareUrl(): string {
+function getShareUrl(): string {
     // 构建完整的分享链接
     const baseUrl = 'https://your-domain.com'; // 替换为实际域名
-    return `${baseUrl}${this.sharePath}`;
-  }
+    return `${baseUrl}${props.sharePath}`;
+}
 
-  /**
-   * 获取绝对路径图片URL
-   */
-  getAbsoluteImageUrl(): string {
+function getAbsoluteImageUrl(): string {
     // 如果是本地路径，需要转换为可访问的URL
-    if (this.shareImage.startsWith('/static/')) {
-      const baseUrl = 'https://your-domain.com'; // 替换为实际域名
-      return `${baseUrl}${this.shareImage}`;
+    if (props.shareImage.startsWith('/static/')) {
+        const baseUrl = 'https://your-domain.com'; // 替换为实际域名
+        return `${baseUrl}${props.shareImage}`;
     }
-    return this.shareImage;
-  }
+    return props.shareImage;
+}
 
-  /**
-   * 降级分享方案
-   */
-  fallbackShare() {
+function fallbackShare() {
     // 使用原生分享功能
     uni.showShareMenu({
-      withShareTicket: true,
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: () => {
-        uni.showToast({
-          title: '请点击右上角分享',
-          icon: 'none',
-          duration: 2000
-        });
-      },
-      fail: () => {
-        uni.showToast({
-          title: '当前环境不支持分享',
-          icon: 'none'
-        });
-      }
+        withShareTicket: true,
+        menus: ['shareAppMessage', 'shareTimeline'],
+        success: () => {
+            uni.showToast({
+                title: '请点击右上角分享',
+                icon: 'none',
+                duration: 2000
+            });
+        },
+        fail: () => {
+            uni.showToast({
+                title: '当前环境不支持分享',
+                icon: 'none'
+            });
+        }
     });
-  }
 }
 </script>
 

@@ -1,6 +1,11 @@
 > fnOS / N100 当前推荐入口：[单镜像可选服务部署](../docs/deploy-fnos.md)。以下原生脚本与 Cloudflare 配置是另一套兼容部署，不能直接当成 fnOS 已完成配置。API 不再安装 Gradio，若使用原演示，请先在后端虚拟环境安装 `hivision-core/requirements-app.txt`。
 
-# 小七快照拍后端与管理后台
+# 一寸不差照片助手后端与管理后台
+
+API 部署统一使用 Python 3.11 和 `requirements-api.lock`，Docker 与 bootstrap 均按版本及哈希安装。
+图片解码、推理和编码在有限容量线程池中执行：默认 `IDPHOTO_IMAGE_WORKERS=2`、`IDPHOTO_IMAGE_CAPACITY=4`（运行和排队总数）。
+共享模型仍通过锁保护；容量用尽返回 503，不自动重发。单进程部署和 SQLite 保持不变。
+本次升级与验证见 [迁移记录](../docs/migration-vue3.md)。
 
 本目录包含可独立部署的完整后端：HivisionIDPhotos 基础源码位于 `hivision-core/`，微信登录、会员、虚拟支付与消息推送、服务监控和会员管理后台位于 `hivision-overlay/`。下载本仓库后不需要再克隆 HivisionIDPhotos；运行 `./bootstrap.sh` 会创建 Python 环境、安装依赖并下载经过 SHA-256 校验的模型文件。
 

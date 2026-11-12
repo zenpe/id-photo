@@ -5,6 +5,7 @@
 
 # Mini-program API, payment receiver, and membership admin
 fastapi>=0.110,<1
+pydantic>=2,<3
 uvicorn[standard]>=0.29,<1
 python-multipart>=0.0.9,<1
 pillow>=10,<13

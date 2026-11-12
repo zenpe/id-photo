@@ -17,32 +17,85 @@
     <view v-if="purchaseEnabled" class="bottom"><view class="primary-button" :class="{ disabled: !selectedPlan }" @click="openDetails">{{ selectedPlan && selectedPlan.status === 'active' ? '开通会员 ¥' + price(selectedPlan.price_fen) : selectedPlan ? '查看套餐详情' : '套餐准备中' }}</view></view>
   </view>
 </template>
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import { capabilities } from '@/config';
 import { refreshCapabilities } from '@/api/capabilities';
-import { Component } from 'vue-property-decorator';
 import { getMembershipPlans, getMembershipStatus, MembershipPlan, MembershipStatus, formatFen, formatMemberDate } from '@/api/membership';
 import InlineState from '@/components/InlineState.vue';
-@Component({ components: { InlineState } })
-export default class Membership extends Vue {
-  plans: MembershipPlan[] = []; memberStatus: MembershipStatus | null = null; selectedId: number | null = null; loading = true; error = false;
-  get purchaseEnabled() { return capabilities.purchaseEnabled; }
-  get selectedPlan(): MembershipPlan | undefined { return this.plans.find(item => item.id === this.selectedId); }
-  onShow() { this.load(); }
-  async load() {
-    await refreshCapabilities();
-    if (!this.purchaseEnabled) { this.loading=false; this.plans=[]; try {this.memberStatus=await getMembershipStatus();}catch(_){} return; }
-    this.loading = true; this.error = false;
-    try { this.plans = await getMembershipPlans(); if (!this.plans.some(item => item.id === this.selectedId)) this.selectedId = this.plans.length ? this.plans[0].id : null; }
-    catch (_) { this.error = true; this.plans = []; this.selectedId = null; }
-    finally { this.loading = false; }
-    try { this.memberStatus = await getMembershipStatus(); } catch (_) { this.memberStatus = null; }
-  }
-  price(value: number) { return formatFen(value).replace(/\.00$/, ''); }
-  date(value: string | null) { return formatMemberDate(value); }
-  openDetails() { if (this.purchaseEnabled && this.selectedPlan) uni.navigateTo({ url: `/pages/membership/confirm?id=${this.selectedPlan.id}` }); }
+
+import { ref, computed } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
+
+const plans = ref<MembershipPlan[]>([]);
+
+const memberStatus = ref<MembershipStatus | null>(null);
+
+const selectedId = ref<number | null>(null);
+
+const loading = ref(true);
+
+const error = ref(false);
+
+const purchaseEnabled = computed(() => {
+    return capabilities.purchaseEnabled;
+});
+
+const selectedPlan = computed<MembershipPlan | undefined>(() => {
+    return plans.value.find(item => item.id === selectedId.value);
+});
+
+function handleOnShow() {
+    load();
 }
+
+async function load() {
+    await refreshCapabilities();
+    if (!purchaseEnabled.value) {
+        loading.value = false;
+        plans.value = [];
+        try {
+            memberStatus.value = await getMembershipStatus();
+        }
+        catch (_) { }
+        return;
+    }
+    loading.value = true;
+    error.value = false;
+    try {
+        plans.value = await getMembershipPlans();
+        if (!plans.value.some(item => item.id === selectedId.value))
+            selectedId.value = plans.value.length ? plans.value[0].id : null;
+    }
+    catch (_) {
+        error.value = true;
+        plans.value = [];
+        selectedId.value = null;
+    }
+    finally {
+        loading.value = false;
+    }
+    try {
+        memberStatus.value = await getMembershipStatus();
+    }
+    catch (_) {
+        memberStatus.value = null;
+    }
+}
+
+function price(value: number) {
+    return formatFen(value).replace(/\.00$/, '');
+}
+
+function date(value: string | null) {
+    return formatMemberDate(value);
+}
+
+function openDetails() {
+    if (purchaseEnabled.value && selectedPlan.value)
+        uni.navigateTo({ url: `/pages/membership/confirm?id=${selectedPlan.value.id}` });
+}
+
+onShow(handleOnShow);
 </script>
 <style lang="scss" scoped>
 @import '@/assets/design-tokens.scss';

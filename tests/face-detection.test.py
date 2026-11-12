@@ -5,6 +5,7 @@ so these regressions also run on machines without the image-processing stack.
 """
 import ast
 import asyncio
+import sys
 import types
 import unittest
 from pathlib import Path
@@ -13,6 +14,8 @@ from unittest.mock import AsyncMock, Mock
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'backend/hivision-overlay'))
+from miniapp_image_runtime import run_image_task
 CORE = ROOT / 'backend/hivision-core/hivision'
 API = ROOT / 'backend/hivision-overlay/deploy_api.py'
 
@@ -108,7 +111,7 @@ class FaceFailureResponseTests(unittest.IsolatedAsyncioTestCase):
                     env = {
                         'FaceError': FaceError, 'UploadFile': object,
                         'Form': lambda *args, **kwargs: None, 'File': lambda *args, **kwargs: None,
-                        'asyncio': asyncio, 'read_image': AsyncMock(return_value='image'),
+                        'asyncio': asyncio, 'run_image_task': run_image_task, 'read_image': AsyncMock(return_value='image'),
                         'cv2': types.SimpleNamespace(IMREAD_COLOR=1, IMREAD_UNCHANGED=-1,
                                                      COLOR_BGR2RGB=2, cvtColor=lambda image, _: image),
                         'require_portrait_size': Mock(), 'validate_matting_model': Mock(),

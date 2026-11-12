@@ -27,7 +27,7 @@ class AdManager {
       const result = await watchRewardedVideo(policy.rewardedVideoAdUnitId);
       if (result === 'completed') {
         if (taskKey) {
-          if (this.grants.size >= 50) this.grants.delete(this.grants.keys().next().value);
+          if (this.grants.size >= 50) this.grants.delete(this.grants.keys().next().value!);
           this.grants.set(taskKey, Date.now() + 30 * 60 * 1000);
         }
         return 'ad';

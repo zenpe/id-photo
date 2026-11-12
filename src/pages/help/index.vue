@@ -6,7 +6,7 @@
               <u-icon name="integral-fill" size="28" color="#356caa" />
         </view>
         <text class="page-title">使用帮助</text>
-        <text class="subtitle">快速上手，{{ $product.name }}助您制作专业证件照</text>
+        <text class="subtitle">了解照片制作、保存与本地草稿的使用方法</text>
       </view>
 
       <scroll-view class="content-scroll" scroll-y="true">
@@ -240,7 +240,7 @@
               <view class="contact-item">
                 <u-icon name="email" size="20" color="#2196F3" />
                 <text class="contact-text">客服邮箱</text>
-                <text class="contact-email">{{ $product.contact }}</text>
+                <text class="contact-email">{{ productConfig.contact }}</text>
               </view>
             </view>
           </view>
@@ -255,93 +255,76 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from "vue-property-decorator";
-
+<script setup lang="ts">
 // 声明微信小程序类型
 declare const wx: any;
+import { productConfig } from '@/config';
+import { ref } from 'vue';
+import { onLoad, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({})
-export default class Help extends Vue {
-  faqExpanded: boolean[] = [false, false, false];
+const faqExpanded = ref<boolean[]>([false, false, false]);
 
-  onLoad() {
+function handleOnLoad() {
     uni.setNavigationBarTitle({
-      title: '使用帮助'
+        title: '使用帮助'
     });
-
     // 显示分享菜单，包括分享到朋友圈
     // #ifdef MP-WEIXIN
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: (res: any) => {
-        console.log('显示分享菜单成功', res);
-      },
-      fail: (err: any) => {
-        console.log('显示分享菜单失败', err);
-      }
+        menus: ['shareAppMessage', 'shareTimeline'],
+        fail: () => {
+            // No shareTimeline permission on some AppIDs: keep the basic share entry.
+            wx.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+        }
     });
     // #endif
-  }
+}
 
-  /**
-   * 切换FAQ展开状态
-   */
-  toggleFaq(index: number) {
-    this.$set(this.faqExpanded, index, !this.faqExpanded[index]);
-  }
+function toggleFaq(index: number) {
+    faqExpanded.value[index] = !faqExpanded.value[index];
+}
 
-  /**
-   * 跳转到意见反馈
-   */
-  goToFeedback() {
+function goToFeedback() {
     uni.navigateBack({
-      delta: 2
+        delta: 2
     });
-    
     // 延迟触发反馈弹窗
     setTimeout(() => {
-      uni.switchTab({
-        url: '/pages/mine/index'
-      });
+        uni.switchTab({
+            url: '/pages/mine/index'
+        });
     }, 100);
-  }
-
-  /**
-   * 分享成功回调 - 原生分享按钮使用
-   */
-  onShareSuccess() {
-    console.log('分享成功回调');
-    uni.showToast({
-      title: '分享成功',
-      icon: 'success',
-      duration: 2000
-    });
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
 }
+
+function onShareSuccess() {
+    uni.showToast({
+        title: '分享成功',
+        icon: 'success',
+        duration: 2000
+    });
+}
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onLoad(handleOnLoad);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
 from miniapp_content_security import check_image, security_error
+from miniapp_image_runtime import run_image_task
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_BODY_BYTES = 28 * 1024 * 1024
@@ -160,7 +161,7 @@ def _decode_image(image_bytes, mode):
 async def read_image_with_security(upload: UploadFile, encoded: str, mode=cv2.IMREAD_COLOR):
     """Read, validate and check an uploaded image before any inference."""
     image_bytes = await _read_image_bytes(upload, encoded)
-    decoded = _decode_image(image_bytes, mode)
+    decoded = await run_image_task(_decode_image, image_bytes, mode)
     result = await check_image(image_bytes, _request_subject.get())
     if result.get('safe') is not True:
         raise security_error(result)
@@ -175,7 +176,7 @@ async def audit_image(upload: UploadFile, encoded: str, mode=cv2.IMREAD_UNCHANGE
     a risky or unavailable check before inference.
     """
     image_bytes = await _read_image_bytes(upload, encoded)
-    _decode_image(image_bytes, mode)
+    await run_image_task(_decode_image, image_bytes, mode)
     return await check_image(image_bytes, _request_subject.get())
 
 

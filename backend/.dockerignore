@@ -1,7 +1,10 @@
 # Allow only the source needed by the API into the build context.
 **
 !Dockerfile
+!branding.json
+!brand-logo.svg
 !requirements.txt
+!requirements-api.lock
 !constraints-api.txt
 !hivision-core/
 !hivision-core/requirements.txt

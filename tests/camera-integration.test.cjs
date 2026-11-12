@@ -1,3 +1,4 @@
+// Historical Vue 2 automation: incompatible with Vue 3 script setup. See docs/migration-vue3.md.
 const path = require('path');
 const fs = require('fs');
 const root = path.resolve(__dirname, '..');

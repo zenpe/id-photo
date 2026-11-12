@@ -1,45 +1,12 @@
-import { PhotoSize, photoSizes } from "@/model/PhotoSize";
-import { MutationTree, GetterTree } from "vuex";
-import { copyProperties } from "@/utils/common";
-import { PhotoPath } from "@/model/Interfaces";
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+import { PhotoSize, photoSizes } from '@/model/PhotoSize';
+import { PhotoPath } from '@/model/Interfaces';
 
-interface PhotoState {
-  photoConfig: PhotoSize;
-  photoPath?: PhotoPath;
-}
-
-const state: PhotoState = {
-  photoConfig: photoSizes[0],
-  photoPath: undefined,
-};
-
-const getters = {
-  photoConfig: (state: PhotoState) => state.photoConfig,
-  photoPath: (state: PhotoState) => state.photoPath,
-};
-
-const mutations: MutationTree<PhotoState> = {
-  /**
-   *
-   * @param state 状态
-   * @param data 相片参数
-   */
-  SET_PHOTO_SIZE(state: PhotoState, data: PhotoSize) {
-    state.photoConfig = data;
-  },
-  /**
-   *
-   * @param state 状态
-   * @param data 相片
-   */
-  SET_PHOTO_PATH(state: PhotoState, data: PhotoPath) {
-    state.photoPath = data;
-  },
-};
-
-export default {
-  namespace: true,
-  state,
-  mutations,
-  getters,
-};
+export const usePhotoStore = defineStore('photo', () => {
+  const photoConfig = ref<PhotoSize>({ ...photoSizes[0] });
+  const photoPath = ref<PhotoPath>({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
+  function setPhotoSize(value: PhotoSize) { photoConfig.value = value; }
+  function setPhotoPath(value: PhotoPath) { photoPath.value = value; }
+  return { photoConfig, photoPath, setPhotoSize, setPhotoPath };
+});

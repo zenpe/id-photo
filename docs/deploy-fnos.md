@@ -45,8 +45,8 @@ docker compose logs --tail=100 api
 首次构建需要 Docker Hub、PyPI、GitHub Releases。约 275 MB 模型按大小和 SHA-256 校验，后续随镜像使用。
 API 不安装 Gradio 演示依赖；原项目演示仍可另装 `hivision-core/requirements-app.txt`。
 
-当前固定数值推理栈版本，并在镜像中保存完整解析结果 `/app/requirements.resolved.txt`。
-**这还不是跨时间完全冻结的 Python 依赖锁**。本机 Docker daemon 未启动，镜像构建和真实推理尚须 NAS 或新增 CI 验证。
+Docker 和原生 bootstrap 使用 `backend/requirements-api.lock`，对 Python 3.11 的完整依赖固定版本并校验文件哈希；镜像仍保存 `/app/requirements.resolved.txt` 供核对。
+本机已验证锁文件安装、真实默认模型和图片接口；Linux 镜像构建与 NAS 启动仍须在 CI/NAS 验证。
 验证通过后保留镜像和解析清单，重建镜像不能代替回退：
 
 ```sh

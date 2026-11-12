@@ -144,25 +144,23 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from "vue-property-decorator";
+<script setup lang="ts">
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import PhotoCamera from '@/components/PhotoCamera.vue';
+import { productConfig } from '@/config';
+import { ref, onMounted } from 'vue';
+import { onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { LoadingOverlay, PhotoCamera } })
-export default class WatermarkUpload extends Vue {
-  // 按钮样式
-  primaryButtonStyle = {
+const primaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '20rpx',
     fontSize: '30rpx',
     fontWeight: '600',
     boxShadow: 'none'
-  };
-  
-  secondaryButtonStyle = {
+});
+
+const secondaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '20rpx',
@@ -170,109 +168,96 @@ export default class WatermarkUpload extends Vue {
     fontWeight: '600',
     borderColor: '#cc3d35',
     color: '#cc3d35'
-  };
+});
 
-  // 本地文件地址
-  imagePath: string = '';
-  
-  // 图片预览遮罩
-  show: boolean = false;
-  
-  // 加载动画
-  loading: boolean = false;
-  
-  showCamera: boolean = false;
+const imagePath = ref<string>('');
 
-  mounted() {
-  }
+const show = ref<boolean>(false);
 
-  /**
-   * 选择图片
-   */
-  chooseImage(type: 'album' | 'camera') {
+const loading = ref<boolean>(false);
+
+const showCamera = ref<boolean>(false);
+
+function handleOnMounted() {
+}
+
+function chooseImage(type: 'album' | 'camera') {
     if (type === 'camera') {
-      this.openCamera();
-      return;
+        openCamera();
+        return;
     }
-
     // 从相册选择
     // #ifdef H5
     uni.chooseImage({
-      count: 1,
-      sourceType: [type],
-      success: (res) => {
-        const path = res.tempFilePaths[0];
-        this.imagePath = path;
-        this.show = true;
-      }
+        count: 1,
+        sourceType: [type],
+        success: (res) => {
+            const path = res.tempFilePaths[0];
+            imagePath.value = path;
+            show.value = true;
+        }
     });
     // #endif
-
     // #ifdef MP-WEIXIN
     uni.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: [type],
-      success: (res) => {
-        const path = res.tempFiles[0].tempFilePath;
-        this.imagePath = path;
-        this.show = true;
-      }
+        count: 1,
+        mediaType: ['image'],
+        sourceType: [type],
+        success: (res) => {
+            const path = res.tempFiles[0].tempFilePath;
+            imagePath.value = path;
+            show.value = true;
+        }
     });
     // #endif
-  }
+}
 
-  openCamera() { this.showCamera = true; }
-  onCameraSelect(path: string) {
-    this.showCamera = false;
-    this.imagePath = path;
-    this.show = true;
-  }
+function openCamera() {
+    showCamera.value = true;
+}
 
-  /**
-   * 确认选择
-   */
-  confirmSelect() {
+function onCameraSelect(path: string) {
+    showCamera.value = false;
+    imagePath.value = path;
+    show.value = true;
+}
+
+function confirmSelect() {
     // 跳转到水印处理页面，传递图片路径
     uni.navigateTo({
-      url: `/pages/watermark/index?image=${encodeURIComponent(this.imagePath)}`
+        url: `/pages/watermark/index?image=${encodeURIComponent(imagePath.value)}`
     });
-  }
-
-  /**
-   * 分享成功回调 - 原生分享按钮使用
-   */
-  onShareSuccess() {
-    console.log('分享成功回调');
-    uni.showToast({
-      title: '分享成功',
-      icon: 'success',
-      duration: 2000
-    });
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
 }
+
+function onShareSuccess() {
+    uni.showToast({
+        title: '分享成功',
+        icon: 'success',
+        duration: 2000
+    });
+}
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onMounted(handleOnMounted);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>
@@ -544,12 +529,12 @@ $shadow-heavy: 0 16rpx 48rpx rgba(0, 0, 0, 0.12);
   }
 }
 
-.content-container > * {
+.content-container > view {
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.content-container > *:nth-child(1) { animation-delay: 0.1s; }
-.content-container > *:nth-child(2) { animation-delay: 0.2s; }
+.content-container > view:nth-child(1) { animation-delay: 0.1s; }
+.content-container > view:nth-child(2) { animation-delay: 0.2s; }
 
 @import '@/assets/legacy-page-themes.scss';
 @include tool-page-theme;

@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import hmac
+from html import escape
 import ipaddress
 import json
 import os
@@ -18,7 +19,7 @@ import requests
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import PlainTextResponse
 
@@ -114,19 +115,19 @@ class PlanInput(BaseModel):
     sort_order: int = Field(default=0, ge=0, le=10000)
     status: str = 'draft'
 
-    @validator('name')
+    @field_validator('name')
     def trim_name(cls, value):
         if not value.strip():
             raise ValueError('请输入套餐名称')
         return value.strip()
 
-    @validator('wechat_product_id')
+    @field_validator('wechat_product_id')
     def product_id_format(cls, value):
         if value and not re.fullmatch(r'[A-Za-z0-9_-]+', value):
             raise ValueError('商品 ID 格式无效')
         return value
 
-    @validator('status')
+    @field_validator('status')
     def allowed_status(cls, value):
         if value not in ('draft', 'archived'):
             raise ValueError('支付未完成，套餐只能设为草稿或归档')
@@ -142,7 +143,10 @@ def startup():
 
 @app.get('/', response_class=HTMLResponse, dependencies=[Depends(require_admin)])
 def index():
-    return (Path(__file__).resolve().parent / 'miniapp_admin.html').read_text(encoding='utf-8')
+    directory = Path(__file__).resolve().parent
+    brand = json.loads((directory.parent / 'branding.json').read_text(encoding='utf-8'))
+    template = (directory / 'miniapp_admin.html').read_text(encoding='utf-8')
+    return template.replace('{{BRAND_SHORT_NAME}}', escape(brand['shortName']))
 
 
 @app.get('/health')
@@ -159,6 +163,11 @@ def admin_css():
 @app.get('/admin.js', dependencies=[Depends(require_admin)])
 def admin_js():
     return FileResponse(Path(__file__).resolve().parent / 'miniapp_admin.js', media_type='application/javascript')
+
+
+@app.get('/brand-logo.svg', dependencies=[Depends(require_admin)])
+def brand_logo():
+    return FileResponse(Path(__file__).resolve().parent.parent / 'brand-logo.svg', media_type='image/svg+xml')
 
 
 @app.get('/api/plans', dependencies=[Depends(require_admin)])

@@ -2,6 +2,7 @@ node_modules/
 .npm-cache/
 dist/
 unpackage/
+.migration/
 .DS_Store
 
 # Local configuration and private key material
@@ -22,6 +23,9 @@ unpackage/
 *.sqlite3-wal
 *.sqlite3-shm
 backend/**/admin.json
+
+# WorkBuddy session data (project-local, not source)
+.workbuddy/
 
 # Python bytecode and local dependency resolution reports
 __pycache__/

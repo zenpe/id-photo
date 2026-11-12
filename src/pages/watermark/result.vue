@@ -58,53 +58,79 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import { saveToAlbum, showSaveFailure } from '@/utils/album';
-import { Component } from "vue-property-decorator";
 import { adManager } from '@/utils/ad-manager'
 import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file'
 import LoadingOverlay from '@/components/LoadingOverlay.vue'
+import { productConfig } from '@/config';
+import { ref, computed } from 'vue';
+import { onLoad, onUnload, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { LoadingOverlay } })
-export default class WatermarkResult extends Vue {
-  imagePath: string = '';
-  saving: boolean = false;
-  processing: boolean = false;
+const imagePath = ref<string>('');
 
-  onLoad(options: any) {
-    if (options.image) this.imagePath = decodeURIComponent(options.image);
-  }
+const saving = ref<boolean>(false);
 
-  onUnload() { removeTemporaryImage(this.imagePath); }
-  retake() { uni.navigateBack(); }
+const processing = ref<boolean>(false);
 
-  get saveLabel() { return adManager.label(); }
-  async saveImage() {
-    if (this.saving) return;
-    this.saving = true;
+function handleOnLoad(options: any) {
+    if (options.image)
+        imagePath.value = decodeURIComponent(options.image);
+}
+
+function handleOnUnload() {
+    removeTemporaryImage(imagePath.value);
+}
+
+function retake() {
+    uni.navigateBack();
+}
+
+const saveLabel = computed(() => {
+    return adManager.label();
+});
+
+async function saveImage() {
+    if (saving.value)
+        return;
+    saving.value = true;
     let temporary = '';
     try {
-      if (!this.imagePath) throw new Error('图片已失效，请重新制作');
-      if (!await adManager.show(this.imagePath)) return;
-      this.processing = true;
-      const path = this.imagePath.startsWith('data:image/')
-        ? (temporary = await writeTemporaryImage(this.imagePath, 'watermark')) : this.imagePath;
-      await saveToAlbum(path);
-      uni.showToast({ title: '保存成功', icon: 'success' });
-    } catch (err: any) {
-      showSaveFailure(err);
-    } finally { removeTemporaryImage(temporary); this.processing = false; this.saving = false; }
-  }
-
-  onShareTimeline() {
-    return { title: this.$product.name + ' - 专业证件照制作', imageUrl: '/static/example.jpeg' };
-  }
-
-  onShareAppMessage() {
-    return { title: this.$product.name + ' - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
-  }
+        if (!imagePath.value)
+            throw new Error('图片已失效，请重新制作');
+        if (!await adManager.show(imagePath.value))
+            return;
+        processing.value = true;
+        const path = imagePath.value.startsWith('data:image/')
+            ? (temporary = await writeTemporaryImage(imagePath.value, 'watermark')) : imagePath.value;
+        await saveToAlbum(path);
+        uni.showToast({ title: '保存成功', icon: 'success' });
+    }
+    catch (err: any) {
+        showSaveFailure(err);
+    }
+    finally {
+        removeTemporaryImage(temporary);
+        processing.value = false;
+        saving.value = false;
+    }
 }
+
+function handleOnShareTimeline() {
+    return { title: productConfig.shareTitle, imageUrl: '/static/example.jpeg' };
+}
+
+function handleOnShareAppMessage() {
+    return { title: productConfig.shareTitle, path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
+}
+
+onLoad(handleOnLoad);
+
+onUnload(handleOnUnload);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

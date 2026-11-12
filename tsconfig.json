@@ -1,21 +1,21 @@
 {
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
+    "target": "ES2020",
+    "module": "ESNext",
     "strict": true,
     "jsx": "preserve",
-    "importHelpers": true,
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators":true,
     "sourceMap": true,
     "skipLibCheck": true,
     "baseUrl": ".",
     "types": [
-      "webpack-env",
       "@dcloudio/types",
-      "miniprogram-api-typings"
+      "miniprogram-api-typings",
+      "vite/client",
+      "node"
     ],
     "paths": {
       "@/*": [
@@ -23,16 +23,19 @@
       ]
     },
     "lib": [
-      "esnext",
-      "dom",
-      "dom.iterable",
-      "scripthost"
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
     ]
   },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "shims-*.d.ts"
+  ],
   "exclude": [
     "node_modules",
-    "unpackage",
     "dist",
-    "src/**/*.nvue"
+    "unpackage"
   ]
 }

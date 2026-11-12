@@ -8,7 +8,7 @@
     <view class="profile-card">
       <image class="avatar" src="/static/logo.png" mode="aspectFill" />
       <view class="profile-copy">
-        <view class="profile-name">{{ $product.name }}</view>
+        <view class="profile-name">{{ productConfig.name }}</view>
         <view class="profile-id"><text>会员编号：</text><text v-if="memberRef" selectable>{{ memberRef }}</text><text v-else>{{ profileError ? '暂不可用' : '查询中…' }}</text></view>
         <button v-if="memberRef" class="profile-id-action" @click="copyMemberRef">复制编号</button>
         <button v-else-if="profileError" class="profile-id-action" @click="loadProfile">重新查询</button>
@@ -44,110 +44,188 @@
         <view class="menu-end"><u-icon name="arrow-right" size="15" color="#8b8f95" /></view>
       </view>
     </view>
-    <view class="page-footer">{{ $product.name }} · 用心记录每一张照片</view>
+    <view class="page-footer">{{ productConfig.name }} · 用心记录每一张照片</view>
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
 import { capabilities } from '@/config';
 import { clearDrafts } from '@/utils/task-draft';
 import StorageManager from '@/utils/storage';
 import { ElectronicPhotoManager } from '@/utils/electronic-photo';
 import { clearTemporaryImages } from '@/utils/image-file';
 import { getMembershipProfile, getMembershipStatus, MembershipStatus, formatMemberDate } from '@/api/membership';
-
 interface MenuItem { key: string; label: string; icon: string; color: string; tone: string; url?: string; }
+import { productConfig } from '@/config';
+import { ref, computed } from 'vue';
+import { onShow, onHide, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({})
-export default class Mine extends Vue {
-  get purchaseEnabled() { return capabilities.purchaseEnabled; }
-  get visiblePersonalItems() { return this.personalItems.filter(item => item.key !== 'member' || this.purchaseEnabled || !!(this.memberStatus && this.memberStatus.active)); }
-  memberRef = '';
-  profileError = false;
-  profileSequence = 0;
-  electronicCount = 0;
-  memberStatus: MembershipStatus | null = null;
-  membershipError = false;
-  memberSequence = 0;
-  personalItems: MenuItem[] = [
+const purchaseEnabled = computed(() => {
+    return capabilities.purchaseEnabled;
+});
+
+const visiblePersonalItems = computed(() => {
+    return personalItems.value.filter(item => item.key !== 'member' || purchaseEnabled.value || !!(memberStatus.value && memberStatus.value.active));
+});
+
+const memberRef = ref('');
+
+const profileError = ref(false);
+
+const profileSequence = ref(0);
+
+const electronicCount = ref(0);
+
+const memberStatus = ref<MembershipStatus | null>(null);
+
+const membershipError = ref(false);
+
+const memberSequence = ref(0);
+
+const personalItems = ref<MenuItem[]>([
     { key: 'member', label: '会员中心', icon: 'heart', color: '#cc3d35', tone: 'rose', url: '/pages/membership/index' },
     { key: 'orders', label: '购买记录', icon: 'file-text', color: '#956322', tone: 'amber', url: '/pages/membership/orders' },
     { key: 'photos', label: '我的电子照', icon: 'photo', color: '#356caa', tone: 'blue' }
-  ];
-  supportItems: MenuItem[] = [
+]);
+
+const supportItems = ref<MenuItem[]>([
     { key: 'status', label: '服务状态', icon: 'wifi', color: '#287c70', tone: 'teal', url: '/pages/status/index' },
     { key: 'help', label: '使用帮助', icon: 'question-circle', color: '#356caa', tone: 'blue', url: '/pages/help/index' },
     { key: 'agreement', label: '用户协议', icon: 'file-text', color: '#715a9b', tone: 'violet', url: '/pages/user-agreement/index' },
     { key: 'privacy', label: '隐私政策', icon: 'lock', color: '#287c70', tone: 'teal', url: '/pages/privacy-policy/index' },
     { key: 'contact', label: '联系与反馈', icon: 'chat', color: '#356caa', tone: 'blue' },
     { key: 'clear', label: '清理本地照片', icon: 'trash', color: '#956322', tone: 'amber' }
-  ];
-  get memberTitle() {
-    if (this.membershipError) return '会员状态暂不可用';
-    if (!this.memberStatus) return '正在查询会员状态';
-    return this.memberStatus.active ? '会员已开通' : this.memberStatus.status === 'expired' ? '会员已到期' : '会员免广告保存';
-  }
-  get memberDescription() {
-    if (this.membershipError) return '进入会员中心可重试';
-    if (!this.memberStatus) return '请稍候';
-    return this.memberStatus.active ? '有效期至 ' + formatMemberDate(this.memberStatus.expires_at) : '保存照片时，无需观看广告';
-  }
-  onShow() { this.electronicCount = ElectronicPhotoManager.getAll().length; this.loadMembership(); this.loadProfile(); }
-  onHide() { this.memberSequence++; this.profileSequence++; }
-  async loadProfile() {
-    const sequence = ++this.profileSequence;
-    this.memberRef = ''; this.profileError = false;
-    try {
-      const profile = await getMembershipProfile();
-      if (!profile || !/^[a-f0-9]{16}$/.test(profile.user_ref)) throw new Error('会员编号无效');
-      if (sequence === this.profileSequence) this.memberRef = profile.user_ref;
-    } catch (_) { if (sequence === this.profileSequence) this.profileError = true; }
-  }
-  copyMemberRef() {
-    if (!this.memberRef) return;
-    uni.setClipboardData({
-      data: this.memberRef,
-      success: () => uni.showToast({ title: '会员编号已复制', icon: 'success' }),
-      fail: () => uni.showToast({ title: '复制失败，请重试', icon: 'none' })
-    });
-  }
-  async loadMembership() {
-    const sequence = ++this.memberSequence;
-    this.memberStatus = null; this.membershipError = false;
-    try { const status = await getMembershipStatus(); if (sequence === this.memberSequence) this.memberStatus = status; }
-    catch (_) { if (sequence === this.memberSequence) this.membershipError = true; }
-  }
-  open(url: string) { uni.navigateTo({ url }); }
-  openItem(item: MenuItem) {
-    if (item.url) this.open(item.url);
-    else if (item.key === 'photos') this.electronic();
-    else if (item.key === 'contact') this.previewQrcode();
-    else if (item.key === 'clear') this.clearCache();
-  }
-  electronic() { uni.switchTab({ url: '/pages/electronic/index' }); }
-  previewQrcode() { uni.showModal({title:'联系与反馈', content:this.$product.contact, confirmText:'复制', success:result => {if(result.confirm) uni.setClipboardData({data:this.$product.contact});}}); }
-  clearCache() {
-    uni.showModal({ title: '确认清理', content: '将清理本地电子照、照片历史和临时图片，不影响手机相册。', success: async res => {
-      if (!res.confirm) return;
-      try {
-        if (!ElectronicPhotoManager.clear()) throw new Error('电子照清理失败');
-        StorageManager.clearPhotoHistory();
-        uni.removeStorageSync('electronic_photo_history');
-        await clearDrafts();
-        await clearTemporaryImages();
-        this.electronicCount = ElectronicPhotoManager.getAll().length;
-        uni.showToast({ title: '清理成功', icon: 'success' });
-      } catch (error: any) {
-        this.electronicCount = ElectronicPhotoManager.getAll().length;
-        uni.showModal({ title: '清理未完成', content: error.message || '请稍后重试', showCancel: false });
-      }
-    } });
-  }
-  onShareTimeline() { return { title: this.$product.name + ' - 专业证件照制作', imageUrl: '/static/example.jpeg' }; }
-  onShareAppMessage() { return { title: this.$product.name + ' - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
+]);
+
+const memberTitle = computed(() => {
+    if (membershipError.value)
+        return '会员状态暂不可用';
+    if (!memberStatus.value)
+        return '正在查询会员状态';
+    return memberStatus.value.active ? '会员已开通' : memberStatus.value.status === 'expired' ? '会员已到期' : '会员免广告保存';
+});
+
+const memberDescription = computed(() => {
+    if (membershipError.value)
+        return '进入会员中心可重试';
+    if (!memberStatus.value)
+        return '请稍候';
+    return memberStatus.value.active ? '有效期至 ' + formatMemberDate(memberStatus.value.expires_at) : '保存照片时，无需观看广告';
+});
+
+function handleOnShow() {
+    electronicCount.value = ElectronicPhotoManager.getAll().length;
+    loadMembership();
+    loadProfile();
 }
+
+function handleOnHide() {
+    memberSequence.value++;
+    profileSequence.value++;
+}
+
+async function loadProfile() {
+    const sequence = ++profileSequence.value;
+    memberRef.value = '';
+    profileError.value = false;
+    try {
+        const profile = await getMembershipProfile();
+        if (!profile || !/^[a-f0-9]{16}$/.test(profile.user_ref))
+            throw new Error('会员编号无效');
+        if (sequence === profileSequence.value)
+            memberRef.value = profile.user_ref;
+    }
+    catch (_) {
+        if (sequence === profileSequence.value)
+            profileError.value = true;
+    }
+}
+
+function copyMemberRef() {
+    if (!memberRef.value)
+        return;
+    uni.setClipboardData({
+        data: memberRef.value,
+        success: () => uni.showToast({ title: '会员编号已复制', icon: 'success' }),
+        fail: () => uni.showToast({ title: '复制失败，请重试', icon: 'none' })
+    });
+}
+
+async function loadMembership() {
+    const sequence = ++memberSequence.value;
+    memberStatus.value = null;
+    membershipError.value = false;
+    try {
+        const status = await getMembershipStatus();
+        if (sequence === memberSequence.value)
+            memberStatus.value = status;
+    }
+    catch (_) {
+        if (sequence === memberSequence.value)
+            membershipError.value = true;
+    }
+}
+
+function open(url: string) {
+    uni.navigateTo({ url });
+}
+
+function openItem(item: MenuItem) {
+    if (item.url)
+        open(item.url);
+    else if (item.key === 'photos')
+        electronic();
+    else if (item.key === 'contact')
+        previewQrcode();
+    else if (item.key === 'clear')
+        clearCache();
+}
+
+function electronic() {
+    uni.switchTab({ url: '/pages/electronic/index' });
+}
+
+function previewQrcode() {
+    uni.showModal({ title: '联系与反馈', content: productConfig.contact, confirmText: '复制', success: result => { if (result.confirm)
+            uni.setClipboardData({ data: productConfig.contact }); } });
+}
+
+function clearCache() {
+    uni.showModal({ title: '确认清理', content: '将清理本地电子照、照片历史和临时图片，不影响手机相册。', success: async (res) => {
+            if (!res.confirm)
+                return;
+            try {
+                if (!ElectronicPhotoManager.clear())
+                    throw new Error('电子照清理失败');
+                StorageManager.clearPhotoHistory();
+                uni.removeStorageSync('electronic_photo_history');
+                await clearDrafts();
+                await clearTemporaryImages();
+                electronicCount.value = ElectronicPhotoManager.getAll().length;
+                uni.showToast({ title: '清理成功', icon: 'success' });
+            }
+            catch (error: any) {
+                electronicCount.value = ElectronicPhotoManager.getAll().length;
+                uni.showModal({ title: '清理未完成', content: error.message || '请稍后重试', showCancel: false });
+            }
+        } });
+}
+
+function handleOnShareTimeline() {
+    return { title: productConfig.shareTitle, imageUrl: '/static/example.jpeg' };
+}
+
+function handleOnShareAppMessage() {
+    return { title: productConfig.shareTitle, path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
+}
+
+onShow(handleOnShow);
+
+onHide(handleOnHide);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

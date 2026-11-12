@@ -2,8 +2,7 @@
   <view class="home">
     <view class="hero">
       <view class="hero-copy">
-        <text class="hero-title">制作证件照</text>
-        <text class="hero-subtitle">选择规格，轻松完成</text>
+        <text class="hero-title">{{ productConfig.tagline }}</text>
       </view>
       <view class="hero-art" aria-hidden="true">
         <view class="art-card art-card-back"></view>
@@ -11,6 +10,7 @@
       </view>
     </view>
 
+    <view class="hero-description">{{ productConfig.description }}</view>
     <view class="search-box">
       <u-icon name="search" size="20" color="#777d85" />
       <input v-model="searchText" confirm-type="search" placeholder="搜索尺寸或用途" placeholder-class="search-placeholder" />
@@ -59,8 +59,8 @@
     <view class="section">
       <view class="section-heading"><text>实用工具</text></view>
       <view class="tool-grid">
-        <view class="tool-tile" @click="openTool('/pages/matting/index')"><view class="tile-icon tone-1"><u-icon name="cut" size="22" color="#356caa" /></view><text>人像抠图</text><u-icon name="arrow-right" size="14" color="#8b8f95" /></view>
-        <view class="tool-tile" @click="openTool('/pages/watermark/index')"><view class="tile-icon tone-2"><u-icon name="photo" size="22" color="#287c70" /></view><text>图片加水印</text><u-icon name="arrow-right" size="14" color="#8b8f95" /></view>
+        <view class="tool-tile" @click="openTool('/pages/matting/index')"><view class="tile-icon tone-1"><u-icon name="cut" size="22" color="#356caa" /></view><text>智能抠图</text><u-icon name="arrow-right" size="14" color="#8b8f95" /></view>
+        <view class="tool-tile" @click="openTool('/pages/watermark/index')"><view class="tile-icon tone-2"><u-icon name="photo" size="22" color="#287c70" /></view><text>添加水印</text><u-icon name="arrow-right" size="14" color="#8b8f95" /></view>
         <view class="tool-tile" @click="openTool('/pages/convert/index')"><view class="tile-icon tone-3"><u-icon name="file-text" size="22" color="#715a9b" /></view><text>格式与压缩</text><u-icon name="arrow-right" size="14" color="#8b8f95" /></view>
       </view>
     </view>
@@ -77,86 +77,153 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from 'vue-property-decorator';
-import { Mutation } from 'vuex-class';
+<script setup lang="ts">
 import { PhotoSize, photoSizes, allSize, getPhotoSize } from '@/model/PhotoSize';
 import { fetchServiceStatus } from '@/api/service-status';
 import ServiceStatusBanner from '@/components/ServiceStatusBanner.vue';
+import { productConfig } from '@/config';
+import { usePhotoStore } from '@/store/modules/photo';
+import { ref, computed } from 'vue';
+import { onShow, onHide, onUnload, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { ServiceStatusBanner } })
-export default class Index extends Vue {
-  @Mutation('SET_PHOTO_SIZE') setPhotoSize!: (value: PhotoSize) => void;
-  searchText = '';
-  selectedCategory = '';
-  customOpen = false;
-  customWidth = '';
-  customHeight = '';
-  resultLimit = 60;
-  toneColors = ['#cc3d35', '#356caa', '#287c70', '#715a9b'];
-  serviceState: 'checking' | 'ok' | 'degraded' | 'offline' = 'checking';
-  statusTimer: any = null;
-  statusSequence = 0;
-  categories = [
+const photoStore = usePhotoStore();
+
+const setPhotoSize = photoStore.setPhotoSize;
+
+const searchText = ref('');
+
+const selectedCategory = ref('');
+
+const customOpen = ref(false);
+
+const customWidth = ref('');
+
+const customHeight = ref('');
+
+const resultLimit = ref(60);
+
+const toneColors = ref(['#cc3d35', '#356caa', '#287c70', '#715a9b']);
+
+const serviceState = ref<'checking' | 'ok' | 'degraded' | 'offline'>('checking');
+
+const statusTimer = ref<any>(null);
+
+const statusSequence = ref(0);
+
+const categories = ref([
     { name: '考试报名', icon: 'file-text', ids: [1, 6, 7, 10] },
     { name: '证件办理', icon: 'bag', ids: [2, 9] },
     { name: '学习工作', icon: 'account', ids: [5, 8] },
     { name: '更多规格', icon: 'grid', ids: [] }
-  ];
+]);
 
-  get commonSizes(): PhotoSize[] {
+const commonSizes = computed<PhotoSize[]>(() => {
     return [11, 12, 3].map(id => getPhotoSize(id)).filter((item): item is PhotoSize => !!item);
-  }
+});
 
-  get matchingSizes(): PhotoSize[] {
-    const query = this.searchText.trim().toLowerCase();
-    if (query) return allSize.filter(item => `${item.name || ''} ${item.mmWidth} ${item.mmHeight} ${item.pxWidth} ${item.pxHeight}`.toLowerCase().indexOf(query) >= 0);
-    const group = this.categories.find(item => item.name === this.selectedCategory);
+const matchingSizes = computed<PhotoSize[]>(() => {
+    const query = searchText.value.trim().toLowerCase();
+    if (query)
+        return allSize.filter(item => `${item.name || ''} ${item.mmWidth} ${item.mmHeight} ${item.pxWidth} ${item.pxHeight}`.toLowerCase().indexOf(query) >= 0);
+    const group = categories.value.find(item => item.name === selectedCategory.value);
     return !group || !group.ids.length ? allSize : photoSizes.filter(item => item.id !== undefined && group.ids.indexOf(item.id) >= 0);
-  }
+});
 
-  get filteredSizes(): PhotoSize[] { return this.matchingSizes.slice(0, this.resultLimit); }
-  get hasMoreSizes(): boolean { return this.matchingSizes.length > this.resultLimit; }
+const filteredSizes = computed<PhotoSize[]>(() => {
+    return matchingSizes.value.slice(0, resultLimit.value);
+});
 
-  onShow() { this.stopStatusUpdates(); this.refreshServiceStatus(); this.statusTimer = setInterval(() => this.refreshServiceStatus(), 60000); }
-  onHide() { this.stopStatusUpdates(); }
-  onUnload() { this.stopStatusUpdates(); }
-  stopStatusUpdates() { if (this.statusTimer) clearInterval(this.statusTimer); this.statusTimer = null; this.statusSequence++; }
-  async refreshServiceStatus() {
-    const sequence = ++this.statusSequence;
-    try { const status = await fetchServiceStatus(); if (sequence === this.statusSequence) this.serviceState = status.status; }
-    catch (_) { if (sequence === this.statusSequence) this.serviceState = 'offline'; }
-  }
+const hasMoreSizes = computed<boolean>(() => {
+    return matchingSizes.value.length > resultLimit.value;
+});
 
-  selectSize(size: PhotoSize) {
-    this.setPhotoSize(size);
-    uni.navigateTo({ url: '/pages/photo/index' });
-  }
-  showAllSizes() { this.resultLimit = 60; this.searchText = ''; this.selectedCategory = '全部规格'; }
-  selectCategory(name: string) { this.resultLimit = 60; this.searchText = ''; this.selectedCategory = name; }
-  openTool(url: string) { uni.navigateTo({ url }); }
-  applyCustomSize() {
-    const width = Number(this.customWidth), height = Number(this.customHeight);
-    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 80 || height < 80 || width > 1200 || height > 1200) {
-      uni.showToast({ title: '宽高请输入 80–1200 的整数', icon: 'none' }); return;
-    }
-    this.customOpen = false;
-    this.selectSize({ name: '自定义尺寸', pxWidth: width, pxHeight: height, dpi: 300,
-      mmWidth: Math.round(width * 25.4 / 300), mmHeight: Math.round(height * 25.4 / 300) });
-  }
-  onShareAppMessage() { return { title: this.$product.name + ' - 轻松制作证件照', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
+function handleOnShow() {
+    stopStatusUpdates();
+    refreshServiceStatus();
+    statusTimer.value = setInterval(() => refreshServiceStatus(), 60000);
 }
+
+function handleOnHide() {
+    stopStatusUpdates();
+}
+
+function handleOnUnload() {
+    stopStatusUpdates();
+}
+
+function stopStatusUpdates() {
+    if (statusTimer.value)
+        clearInterval(statusTimer.value);
+    statusTimer.value = null;
+    statusSequence.value++;
+}
+
+async function refreshServiceStatus() {
+    const sequence = ++statusSequence.value;
+    try {
+        const status = await fetchServiceStatus();
+        if (sequence === statusSequence.value)
+            serviceState.value = status.status;
+    }
+    catch (_) {
+        if (sequence === statusSequence.value)
+            serviceState.value = 'offline';
+    }
+}
+
+function selectSize(size: PhotoSize) {
+    setPhotoSize(size);
+    uni.navigateTo({ url: '/pages/photo/index' });
+}
+
+function showAllSizes() {
+    resultLimit.value = 60;
+    searchText.value = '';
+    selectedCategory.value = '全部规格';
+}
+
+function selectCategory(name: string) {
+    resultLimit.value = 60;
+    searchText.value = '';
+    selectedCategory.value = name;
+}
+
+function openTool(url: string) {
+    uni.navigateTo({ url });
+}
+
+function applyCustomSize() {
+    const width = Number(customWidth.value), height = Number(customHeight.value);
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 80 || height < 80 || width > 1200 || height > 1200) {
+        uni.showToast({ title: '宽高请输入 80–1200 的整数', icon: 'none' });
+        return;
+    }
+    customOpen.value = false;
+    selectSize({ name: '自定义尺寸', pxWidth: width, pxHeight: height, dpi: 300,
+        mmWidth: Math.round(width * 25.4 / 300), mmHeight: Math.round(height * 25.4 / 300) });
+}
+
+function handleOnShareAppMessage() {
+    return { title: productConfig.shareTitle, path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
+}
+
+onShow(handleOnShow);
+
+onHide(handleOnHide);
+
+onUnload(handleOnUnload);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>
 @import '@/assets/design-tokens.scss';
 .home { min-height: 100vh; background: $page; padding: 0 32rpx 48rpx; box-sizing: border-box; color: $ink; }
 .hero { display: flex; justify-content: space-between; align-items: center; height: 250rpx; margin: 0 -32rpx; padding: 12rpx 36rpx 0; background: linear-gradient(110deg, #fff 30%, #fff1ee 100%); overflow: hidden; }
-.hero-copy { display: flex; flex-direction: column; z-index: 1; }
-.hero-title { font-size: 52rpx; font-weight: 700; letter-spacing: 1rpx; }
-.hero-subtitle { margin-top: 12rpx; font-size: 28rpx; color: $muted; }
-.hero-art { position: relative; width: 220rpx; height: 190rpx; }
+.hero-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; z-index: 1; }
+.hero-title { font-size: 36rpx; line-height: 1.5; font-weight: 700; letter-spacing: 1rpx; }
+.hero-description { padding: 16rpx 0 26rpx; font-size: 24rpx; line-height: 1.6; color: $muted; }
+.hero-art { flex-shrink: 0; position: relative; width: 220rpx; height: 190rpx; }
 .art-card { position: absolute; width: 144rpx; height: 168rpx; border-radius: 14rpx; }
 .art-card-back { top: 17rpx; left: 0; background: #ffd8d1; transform: rotate(-11deg); }
 .art-card-front { top: 4rpx; left: 58rpx; padding: 8rpx; box-sizing: border-box; background: #fff; box-shadow: 0 8rpx 24rpx rgba(142, 79, 70, .15); transform: rotate(8deg); overflow: hidden; }

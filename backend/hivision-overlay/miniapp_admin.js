@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)) {
   $('access-mode').textContent = '安全远程访问';
   $('access-detail').textContent = '身份验证与加密连接';
-  $('footer-label').textContent = '小七快照拍 · 运营后台';
+  $('footer-label').textContent = document.querySelector('[data-brand-name]').textContent + ' · 管理后台';
 }
 const state = { view: 'overview', settings: { refresh_seconds: 30, page_size: 20 }, page: { users: 1, orders: 1, refunds: 1, events: 1, audit: 1 }, plans: [], service: null, timer: null };
 const viewInfo = {

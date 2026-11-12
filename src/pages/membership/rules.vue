@@ -9,11 +9,10 @@
     </view>
   </view>
 </template>
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from 'vue-property-decorator';
-@Component({}) export default class MembershipRules extends Vue {
-  agreement() { uni.navigateTo({ url: '/pages/user-agreement/index' }); }
+<script setup lang="ts">
+
+function agreement() {
+    uni.navigateTo({ url: '/pages/user-agreement/index' });
 }
 </script>
 <style lang="scss" scoped>

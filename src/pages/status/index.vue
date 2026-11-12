@@ -58,110 +58,214 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import { capabilities } from '@/config';
-import { Component } from 'vue-property-decorator';
 import { fetchServiceStatus, ServiceSnapshot, CheckState } from '@/api/service-status';
 import { formatMemberDate } from '@/api/membership';
 import { checkImageSecurity, checkMediaSecurity, checkTextSecurity, ContentSecurityResult } from '@/api/content-security';
 import { baseUrl } from '@/config';
+import { productConfig } from '@/config';
+import { ref, computed } from 'vue';
+import { onShow, onHide, onUnload } from '@dcloudio/uni-app';
 
-@Component({})
-export default class StatusPage extends Vue {
-  snapshot: ServiceSnapshot | null = null;
-  connection: 'checking' | 'online' | 'offline' = 'checking';
-  refreshing = false;
-  sequence = 0;
-  timer: any = null;
-  imageChecking = false;
-  textChecking = false;
-  get diagnosticsEnabled() { return capabilities.diagnosticsEnabled; }
-  get asyncMediaEnabled() { return capabilities.asyncMediaEnabled; }
-  mediaChecking = false;
-  imageResult: ContentSecurityResult | null = null;
-  textResult: ContentSecurityResult | null = null;
-  mediaResult: ContentSecurityResult | null = null;
-  textContent = this.$product.name + '内容安全能力演示';
-  mediaUrl = `${baseUrl}/content-security/demo-media`;
-  get displayState() { return this.connection === 'online' && this.snapshot ? this.snapshot.status : this.connection; }
-  get summaryTitle() { return ({ checking:'正在检查服务', ok:'服务连接正常', degraded:'部分服务可能受影响', offline:'暂时无法连接服务' } as any)[this.displayState]; }
-  get summaryDetail() { return ({ checking:'正在获取最新状态', ok:'基础检查已完成', degraded:'请查看下方具体状态，稍后可再次检查', offline:'请检查网络或稍后重试' } as any)[this.displayState]; }
-  get checkedAt() { return this.snapshot ? formatMemberDate(this.snapshot.checked_at) : ''; }
-  get imageResultTone() { return this.imageResult ? this.resultTone(this.imageResult) : ''; }
-  get textResultTone() { return this.textResult ? this.resultTone(this.textResult) : ''; }
-  get mediaResultTone() { return this.mediaResult ? this.resultTone(this.mediaResult, true) : ''; }
-  stateLabel(state: CheckState) { return ({ok:'未见异常',degraded:'近期异常',unavailable:'暂不可用',disabled:'暂未开放',unknown:'未验证'} as any)[state]; }
-  resultTone(result: ContentSecurityResult, asynchronous = false) {
-    if (asynchronous && result.accepted) return 'pending';
+const snapshot = ref<ServiceSnapshot | null>(null);
+
+const connection = ref<'checking' | 'online' | 'offline'>('checking');
+
+const refreshing = ref(false);
+
+const sequence = ref(0);
+
+const timer = ref<any>(null);
+
+const imageChecking = ref(false);
+
+const textChecking = ref(false);
+
+const diagnosticsEnabled = computed(() => {
+    return capabilities.diagnosticsEnabled;
+});
+
+const asyncMediaEnabled = computed(() => {
+    return capabilities.asyncMediaEnabled;
+});
+
+const mediaChecking = ref(false);
+
+const imageResult = ref<ContentSecurityResult | null>(null);
+
+const textResult = ref<ContentSecurityResult | null>(null);
+
+const mediaResult = ref<ContentSecurityResult | null>(null);
+
+const textContent = ref(productConfig.name + '内容安全能力演示');
+
+const mediaUrl = ref(`${baseUrl}/content-security/demo-media`);
+
+const displayState = computed(() => {
+    return connection.value === 'online' && snapshot.value ? snapshot.value.status : connection.value;
+});
+
+const summaryTitle = computed(() => {
+    return ({ checking: '正在检查服务', ok: '服务连接正常', degraded: '部分服务可能受影响', offline: '暂时无法连接服务' } as any)[displayState.value];
+});
+
+const summaryDetail = computed(() => {
+    return ({ checking: '正在获取最新状态', ok: '基础检查已完成', degraded: '请查看下方具体状态，稍后可再次检查', offline: '请检查网络或稍后重试' } as any)[displayState.value];
+});
+
+const checkedAt = computed(() => {
+    return snapshot.value ? formatMemberDate(snapshot.value.checked_at) : '';
+});
+
+const imageResultTone = computed(() => {
+    return imageResult.value ? resultTone(imageResult.value) : '';
+});
+
+const textResultTone = computed(() => {
+    return textResult.value ? resultTone(textResult.value) : '';
+});
+
+const mediaResultTone = computed(() => {
+    return mediaResult.value ? resultTone(mediaResult.value, true) : '';
+});
+
+function stateLabel(state: CheckState) {
+    return ({ ok: '未见异常', degraded: '近期异常', unavailable: '暂不可用', disabled: '暂未开放', unknown: '未验证' } as any)[state];
+}
+
+function resultTone(result: ContentSecurityResult, asynchronous = false) {
+    if (asynchronous && result.accepted)
+        return 'pending';
     return result.safe === true ? 'pass' : result.available ? 'risk' : 'unavailable';
-  }
-  resultTitle(result: ContentSecurityResult, asynchronous = false) {
-    if (asynchronous && result.accepted) return '已提交，等待微信异步回调';
+}
+
+function resultTitle(result: ContentSecurityResult, asynchronous = false) {
+    if (asynchronous && result.accepted)
+        return '已提交，等待微信异步回调';
     return result.safe === true ? '检测通过' : result.available ? '检测未通过' : '检测服务暂不可用';
-  }
-  onShow() { this.stop(); this.refresh(); this.timer = setInterval(() => this.refresh(), 60000); }
-  onHide() { this.stop(); }
-  onUnload() { this.stop(); }
-  stop() { if (this.timer) clearInterval(this.timer); this.timer = null; this.sequence++; this.refreshing = false; }
-  verifyImage() {
-    if (this.imageChecking) return;
+}
+
+function handleOnShow() {
+    stop();
+    refresh();
+    timer.value = setInterval(() => refresh(), 60000);
+}
+
+function handleOnHide() {
+    stop();
+}
+
+function handleOnUnload() {
+    stop();
+}
+
+function stop() {
+    if (timer.value)
+        clearInterval(timer.value);
+    timer.value = null;
+    sequence.value++;
+    refreshing.value = false;
+}
+
+function verifyImage() {
+    if (imageChecking.value)
+        return;
     uni.chooseImage({ count: 1, sizeType: ['compressed', 'original'], sourceType: ['album', 'camera'], success: async (result: any) => {
-      const path = result.tempFilePaths && result.tempFilePaths[0];
-      if (!path) return;
-      this.imageChecking = true;
-      uni.showLoading({ title: '检测中…', mask: true });
-      try {
-        this.imageResult = await checkImageSecurity(path);
-        uni.showToast({ title: this.imageResult.safe === true ? '检测通过' : this.imageResult.available ? '检测未通过' : '服务暂不可用', icon: this.imageResult.safe === true ? 'success' : 'none' });
-      } catch (error: any) {
-        uni.showModal({ title: '检测失败', content: error.message || '内容安全服务暂不可用，请稍后重试', showCancel: false });
-      } finally {
-        uni.hideLoading();
-        this.imageChecking = false;
-      }
-    } });
-  }
-  async verifyText() {
-    if (this.textChecking) return;
-    const content = this.textContent.trim();
-    if (!content) { uni.showToast({ title: '请输入要检测的文本', icon: 'none' }); return; }
-    this.textChecking = true;
+            const path = result.tempFilePaths && result.tempFilePaths[0];
+            if (!path)
+                return;
+            imageChecking.value = true;
+            uni.showLoading({ title: '检测中…', mask: true });
+            try {
+                imageResult.value = await checkImageSecurity(path);
+                uni.showToast({ title: imageResult.value.safe === true ? '检测通过' : imageResult.value.available ? '检测未通过' : '服务暂不可用', icon: imageResult.value.safe === true ? 'success' : 'none' });
+            }
+            catch (error: any) {
+                uni.showModal({ title: '检测失败', content: error.message || '内容安全服务暂不可用，请稍后重试', showCancel: false });
+            }
+            finally {
+                uni.hideLoading();
+                imageChecking.value = false;
+            }
+        } });
+}
+
+async function verifyText() {
+    if (textChecking.value)
+        return;
+    const content = textContent.value.trim();
+    if (!content) {
+        uni.showToast({ title: '请输入要检测的文本', icon: 'none' });
+        return;
+    }
+    textChecking.value = true;
     uni.showLoading({ title: '检测中…', mask: true });
     try {
-      this.textResult = await checkTextSecurity({ content, scene: 2, title: '内容安全能力演示' });
-      uni.showToast({ title: this.textResult.safe === true ? '检测通过' : '检测未通过', icon: this.textResult.safe === true ? 'success' : 'none' });
-    } catch (error: any) {
-      uni.showModal({ title: '检测失败', content: error.message || '文本内容安全服务暂不可用，请稍后重试', showCancel: false });
-    } finally {
-      uni.hideLoading();
-      this.textChecking = false;
+        textResult.value = await checkTextSecurity({ content, scene: 2, title: '内容安全能力演示' });
+        uni.showToast({ title: textResult.value.safe === true ? '检测通过' : '检测未通过', icon: textResult.value.safe === true ? 'success' : 'none' });
     }
-  }
-  async verifyMedia() {
-    if (!this.asyncMediaEnabled || this.mediaChecking) return;
-    const mediaUrl = this.mediaUrl.trim();
-    if (!/^https:\/\//i.test(mediaUrl)) { uni.showToast({ title: '请输入 HTTPS 媒体地址', icon: 'none' }); return; }
-    this.mediaChecking = true;
+    catch (error: any) {
+        uni.showModal({ title: '检测失败', content: error.message || '文本内容安全服务暂不可用，请稍后重试', showCancel: false });
+    }
+    finally {
+        uni.hideLoading();
+        textChecking.value = false;
+    }
+}
+
+async function verifyMedia() {
+    if (!asyncMediaEnabled.value || mediaChecking.value)
+        return;
+    const url = mediaUrl.value.trim();
+    if (!/^https:\/\//i.test(url)) {
+        uni.showToast({ title: '请输入 HTTPS 媒体地址', icon: 'none' });
+        return;
+    }
+    mediaChecking.value = true;
     uni.showLoading({ title: '提交中…', mask: true });
     try {
-      this.mediaResult = await checkMediaSecurity({ media_url: mediaUrl, media_type: 2, scene: 4 });
-      uni.showToast({ title: this.mediaResult.accepted ? '已提交异步检测' : '提交失败', icon: this.mediaResult.accepted ? 'success' : 'none' });
-    } catch (error: any) {
-      uni.showModal({ title: '提交失败', content: error.message || '媒体内容安全服务暂不可用，请稍后重试', showCancel: false });
-    } finally {
-      uni.hideLoading();
-      this.mediaChecking = false;
+        mediaResult.value = await checkMediaSecurity({ media_url: url, media_type: 2, scene: 4 });
+        uni.showToast({ title: mediaResult.value.accepted ? '已提交异步检测' : '提交失败', icon: mediaResult.value.accepted ? 'success' : 'none' });
     }
-  }
-  async refresh() {
-    if (this.refreshing) return;
-    const sequence = ++this.sequence; this.refreshing = true;
-    try { const result = await fetchServiceStatus(); if (sequence === this.sequence) { this.snapshot = result; this.connection = 'online'; } }
-    catch (_) { if (sequence === this.sequence) { this.snapshot = null; this.connection = 'offline'; } }
-    finally { if (sequence === this.sequence) this.refreshing = false; }
-  }
+    catch (error: any) {
+        uni.showModal({ title: '提交失败', content: error.message || '媒体内容安全服务暂不可用，请稍后重试', showCancel: false });
+    }
+    finally {
+        uni.hideLoading();
+        mediaChecking.value = false;
+    }
 }
+
+async function refresh() {
+    if (refreshing.value)
+        return;
+    const requestSequence = ++sequence.value;
+    refreshing.value = true;
+    try {
+        const result = await fetchServiceStatus();
+        if (requestSequence === sequence.value) {
+            snapshot.value = result;
+            connection.value = 'online';
+        }
+    }
+    catch (_) {
+        if (requestSequence === sequence.value) {
+            snapshot.value = null;
+            connection.value = 'offline';
+        }
+    }
+    finally {
+        if (requestSequence === sequence.value)
+            refreshing.value = false;
+    }
+}
+
+onShow(handleOnShow);
+
+onHide(handleOnHide);
+
+onUnload(handleOnUnload);
 </script>
 
 <style lang="scss" scoped>

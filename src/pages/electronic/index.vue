@@ -99,7 +99,7 @@
         />
         <u-button 
           color="#cc3d35"
-          text="继续制作" 
+          text="制作证件照"
           :custom-style="primaryButtonStyle" 
           @click="navigateToPhoto" 
         />
@@ -116,35 +116,35 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import { saveToAlbum, showSaveFailure } from '@/utils/album';
-import { Component } from "vue-property-decorator";
 import { ElectronicPhotoManager, ElectronicPhoto } from '@/utils/electronic-photo';
 import { adManager } from '@/utils/ad-manager';
 import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import InlineState from '@/components/InlineState.vue';
-
 // 声明微信小程序类型
 declare const wx: any;
+import { productConfig } from '@/config';
+import { ref, computed, onMounted } from 'vue';
+import { onShow, onUnload, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { LoadingOverlay, InlineState } })
-export default class ElectronicPage extends Vue {
-  get saveHint(){ return adManager.hint(); }
-  // 确保管理器在组件中可用
-  electronicPhotoManager = ElectronicPhotoManager;
-  // 按钮样式
-  primaryButtonStyle = {
+const saveHint = computed(() => {
+    return adManager.hint();
+});
+
+const electronicPhotoManager = ref(ElectronicPhotoManager);
+
+const primaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '20rpx',
     fontSize: '30rpx',
     fontWeight: '600',
     boxShadow: 'none'
-  };
-  
-  secondaryButtonStyle = {
+});
+
+const secondaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '20rpx',
@@ -152,224 +152,215 @@ export default class ElectronicPage extends Vue {
     fontWeight: '600',
     borderColor: '#e8eaed',
     color: '#17191c'
-  };
+});
 
-  photos: ElectronicPhoto[] = [];
-  loading: boolean = false;
-  processing: boolean = false;
-  previewing: boolean = false;
-  previewPaths: { [id: string]: string } = {};
-  MAX_COUNT = 2;
+const photos = ref<ElectronicPhoto[]>([]);
 
+const loading = ref<boolean>(false);
 
-  mounted() {
-    this.loadPhotos();
-    
+const processing = ref<boolean>(false);
+
+const previewing = ref<boolean>(false);
+
+const previewPaths = ref<{ [id: string]: string }>({});
+
+const MAX_COUNT = ref(2);
+
+function handleOnMounted() {
+    loadPhotos();
     // 显示分享菜单，包括分享到朋友圈
     // #ifdef MP-WEIXIN
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: (res: any) => {
-        console.log('显示分享菜单成功', res);
-      },
-      fail: (err: any) => {
-        console.log('显示分享菜单失败', err);
-      }
+        menus: ['shareAppMessage', 'shareTimeline'],
+        fail: () => {
+            // No shareTimeline permission on some AppIDs: keep the basic share entry.
+            wx.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+        }
     });
     // #endif
-  }
+}
 
-  onShow() {
+function handleOnShow() {
     // 页面显示时重新加载数据
-    this.loadPhotos();
-  }
+    loadPhotos();
+}
 
-  /**
-   * 加载电子照列表
-   */
-  loadPhotos() {
-    const photos = ElectronicPhotoManager.getAll();
-    Object.keys(this.previewPaths).forEach(id => {
-      if (!photos.some(photo => photo.id === id)) {
-        removeTemporaryImage(this.previewPaths[id]);
-        delete this.previewPaths[id];
-      }
+function loadPhotos() {
+    const savedPhotos = ElectronicPhotoManager.getAll();
+    Object.keys(previewPaths.value).forEach(id => {
+        if (!savedPhotos.some(photo => photo.id === id)) {
+            removeTemporaryImage(previewPaths.value[id]);
+            delete previewPaths.value[id];
+        }
     });
-    this.photos = photos;
-  }
+    photos.value = savedPhotos;
+}
 
-  /**
-   * 获取统计信息
-   */
-  get stats() {
+const stats = computed(() => {
     return ElectronicPhotoManager.getStats();
-  }
+});
 
-  /**
-   * 选择照片
-   */
-  async selectPhoto(photo: ElectronicPhoto) {
-    if (this.previewing) return;
-    this.previewing = true;
+async function selectPhoto(photo: ElectronicPhoto) {
+    if (previewing.value)
+        return;
+    previewing.value = true;
     try {
-      if (!photo.hdBase64) throw new Error('照片已失效，请重新制作');
-      let path = this.previewPaths[photo.id] || photo.hdBase64;
-      if (path.startsWith('data:image/')) {
-        path = await writeTemporaryImage(path, 'electronic-preview');
-        this.previewPaths[photo.id] = path;
-      }
-      uni.previewImage({ current: path, urls: [path], fail: () => uni.showToast({ title: '照片无法预览', icon: 'none' }) });
-    } catch (error: any) {
-      uni.showToast({ title: error.message || '照片无法预览', icon: 'none' });
-    } finally { this.previewing = false; }
-  }
+        if (!photo.hdBase64)
+            throw new Error('照片已失效，请重新制作');
+        let path = previewPaths.value[photo.id] || photo.hdBase64;
+        if (path.startsWith('data:image/')) {
+            path = await writeTemporaryImage(path, 'electronic-preview');
+            previewPaths.value[photo.id] = path;
+        }
+        uni.previewImage({ current: path, urls: [path], fail: () => uni.showToast({ title: '照片无法预览', icon: 'none' }) });
+    }
+    catch (error: any) {
+        uni.showToast({ title: error.message || '照片无法预览', icon: 'none' });
+    }
+    finally {
+        previewing.value = false;
+    }
+}
 
-  onUnload() {
-    Object.keys(this.previewPaths).forEach(id => removeTemporaryImage(this.previewPaths[id]));
-    this.previewPaths = {};
-  }
+function handleOnUnload() {
+    Object.keys(previewPaths.value).forEach(id => removeTemporaryImage(previewPaths.value[id]));
+    previewPaths.value = {};
+}
 
-  /**
-   * 下载照片
-   */
-  async downloadPhoto(photo: ElectronicPhoto) {
-    if (this.loading) return;
-    this.loading = true;
+async function downloadPhoto(photo: ElectronicPhoto) {
+    if (loading.value)
+        return;
+    loading.value = true;
     let path = '';
     try {
-      if (!await adManager.show('electronic:' + photo.id)) return;
-      this.processing = true;
-      path = await writeTemporaryImage(photo.hdBase64, 'electronic');
-      await saveToAlbum(path);
-      uni.showToast({ title: '保存成功', icon: 'success' });
-    } catch (error: any) {
-      showSaveFailure(error);
-    } finally { removeTemporaryImage(path); this.processing = false; this.loading = false; }
-  }
+        if (!await adManager.show('electronic:' + photo.id))
+            return;
+        processing.value = true;
+        path = await writeTemporaryImage(photo.hdBase64, 'electronic');
+        await saveToAlbum(path);
+        uni.showToast({ title: '保存成功', icon: 'success' });
+    }
+    catch (error: any) {
+        showSaveFailure(error);
+    }
+    finally {
+        removeTemporaryImage(path);
+        processing.value = false;
+        loading.value = false;
+    }
+}
 
-  /**
-   * 删除照片
-   */
-  deletePhoto(id: string) {
+function deletePhoto(id: string) {
     uni.showModal({
-      title: '确认删除',
-      content: '确定要删除这张电子照吗？删除后无法恢复。',
-      success: (res) => {
-        if (res.confirm) {
-          if (ElectronicPhotoManager.delete(id)) {
-            this.loadPhotos();
-            uni.showToast({
-              title: '删除成功',
-              icon: 'success'
-            });
-          } else {
-            uni.showToast({
-              title: '删除失败',
-              icon: 'none'
-            });
-          }
+        title: '确认删除',
+        content: '确定要删除这张电子照吗？删除后无法恢复。',
+        success: (res) => {
+            if (res.confirm) {
+                if (ElectronicPhotoManager.delete(id)) {
+                    loadPhotos();
+                    uni.showToast({
+                        title: '删除成功',
+                        icon: 'success'
+                    });
+                }
+                else {
+                    uni.showToast({
+                        title: '删除失败',
+                        icon: 'none'
+                    });
+                }
+            }
         }
-      }
     });
-  }
+}
 
-  /**
-   * 清空全部
-   */
-  clearAll() {
+function clearAll() {
     uni.showModal({
-      title: '确认清空',
-      content: '确定要清空所有电子照吗？清空后无法恢复。',
-      success: (res) => {
-        if (res.confirm) {
-          if (ElectronicPhotoManager.clear()) {
-            this.loadPhotos();
-            uni.showToast({
-              title: '清空成功',
-              icon: 'success'
-            });
-          } else {
-            uni.showToast({
-              title: '清空失败',
-              icon: 'none'
-            });
-          }
+        title: '确认清空',
+        content: '确定要清空所有电子照吗？清空后无法恢复。',
+        success: (res) => {
+            if (res.confirm) {
+                if (ElectronicPhotoManager.clear()) {
+                    loadPhotos();
+                    uni.showToast({
+                        title: '清空成功',
+                        icon: 'success'
+                    });
+                }
+                else {
+                    uni.showToast({
+                        title: '清空失败',
+                        icon: 'none'
+                    });
+                }
+            }
         }
-      }
     });
-  }
+}
 
-  /**
-   * 获取颜色名称
-   */
-  getColorName(color: string): string {
-    const colorNames: { [key: string]: string } = {
-      '#FFFFFF': '白色',
-      '#4A90E2': '蓝色',
-      '#F5F5F5': '浅灰',
-      '#E5E5E5': '灰色',
-      '#D4E5F7': '淡蓝',
-      '#FF6B6B': '红色',
-      '#4ECDC4': '青色',
-      '#45B7D1': '天蓝',
-      '#96CEB4': '薄荷绿',
-      '#FFEAA7': '浅黄',
-      '#DDA0DD': '梅花红',
-      '#F8B500': '橙色'
+function getColorName(color: string): string {
+    const colorNames: {
+        [key: string]: string;
+    } = {
+        '#FFFFFF': '白色',
+        '#4A90E2': '蓝色',
+        '#F5F5F5': '浅灰',
+        '#E5E5E5': '灰色',
+        '#D4E5F7': '淡蓝',
+        '#FF6B6B': '红色',
+        '#4ECDC4': '青色',
+        '#45B7D1': '天蓝',
+        '#96CEB4': '薄荷绿',
+        '#FFEAA7': '浅黄',
+        '#DDA0DD': '梅花红',
+        '#F8B500': '橙色'
     };
     return colorNames[color] || color;
-  }
-
-  /**
-   * 格式化日期为 YYYY-MM-dd
-   */
-  formatDateString(timestamp: number): string {
-    return ElectronicPhotoManager.formatDateString(timestamp);
-  }
-
-  /**
-   * 导航到首页选择尺寸
-   */
-  navigateToPhoto() {
-    uni.switchTab({
-      url: '/pages/index/index'
-    });
-  }
-
-  /**
-   * 分享成功回调 - 原生分享按钮使用
-   */
-  onShareSuccess() {
-    console.log('分享成功回调');
-    uni.showToast({
-      title: '分享成功',
-      icon: 'success',
-      duration: 2000
-    });
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
 }
+
+function formatDateString(timestamp: number): string {
+    return ElectronicPhotoManager.formatDateString(timestamp);
+}
+
+function navigateToPhoto() {
+    uni.switchTab({
+        url: '/pages/index/index'
+    });
+}
+
+function onShareSuccess() {
+    uni.showToast({
+        title: '分享成功',
+        icon: 'success',
+        duration: 2000
+    });
+}
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onMounted(handleOnMounted);
+
+onShow(handleOnShow);
+
+onUnload(handleOnUnload);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

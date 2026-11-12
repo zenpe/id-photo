@@ -1,6 +1,6 @@
 # 小程序配置与联调
 
-前端使用 Node 24 / Yarn 1.22.22；NAS 后端见 [fnOS 部署](deploy-fnos.md)。完整实施和验收状态见 [review 记录](rollout-review.md)。
+前端使用 Node 24 / Yarn 1.22.22、uni-app Vue 3 / Vite / Pinia / uview-plus；NAS 后端见 [fnOS 部署](deploy-fnos.md)。本次迁移与验证见 [迁移记录](migration-vue3.md)，历史实施见 [review 记录](rollout-review.md)。
 
 ## 前端
 
@@ -10,11 +10,13 @@ yarn install --frozen-lockfile
 cp .env.example .env.local
 ```
 
-填写 `.env.local` 的 API、品牌、实际运营主体、联系渠道，在 `src/manifest.json` 设置自己的微信 AppID。
+填写 `.env.local` 的 API、实际运营主体、联系渠道，在 `src/manifest.json` 设置自己的微信 AppID。
+产品名称、简称与首页和分享文案读取 `backend/branding.json`，前端与后台共用；旧的 `VUE_APP_BRAND_NAME` 不再生效。
 这些前端值都会公开，不放 AppSecret 或任何后端密钥。生产构建会拒绝缺失配置和上游服务地址。
 
 ```sh
 yarn test:node24
+yarn typecheck
 yarn build:mp-weixin
 ```
 
@@ -44,5 +46,5 @@ yarn build:mp-weixin
 6. 退出重进后通过草稿继续；本机一天内有效；清理不删除相册图片。
 7. 电子照最多两张，满额提示；订单和现有会员查询不因关闭购买而消失。
 
-旧增强编辑页面没有完成全套能力接入，不作为主流程入口；Vue 3 与长任务队列迁移单独进行。
+旧增强编辑页面已迁移语法，但仍不作为主流程入口。图片任务使用有限容量线程池；满额返回 503，前端保留照片与参数供用户重试。
 `scripts/macos/recover-photo.sh` 是旧 LaunchAgent 专用归档，必须显式设置自己的目录；Windows/fnOS 使用 Compose。

@@ -190,32 +190,29 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import DraftResume from '@/components/DraftResume.vue';
 import { rememberDraft, TaskDraft } from '@/utils/task-draft';
-import { Component } from "vue-property-decorator";
 import { humanMatting, MattingParams } from '@/api/matting';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import PhotoCamera from '@/components/PhotoCamera.vue';
 import { writeTemporaryImage, removeTemporaryImage } from '@/utils/image-file';
-
 // 声明微信小程序类型
 declare const wx: any;
+import { productConfig } from '@/config';
+import { ref, onMounted } from 'vue';
+import { onLoad, onHide, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { DraftResume, LoadingOverlay, PhotoCamera } })
-export default class MattingPage extends Vue {
-  // 按钮样式
-  primaryButtonStyle = {
+const primaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '20rpx',
     fontSize: '30rpx',
     fontWeight: '600',
     boxShadow: 'none'
-  };
-  
-  secondaryButtonStyle = {
+});
+
+const secondaryButtonStyle = ref({
     width: '280rpx',
     height: '88rpx',
     borderRadius: '20rpx',
@@ -223,161 +220,182 @@ export default class MattingPage extends Vue {
     fontWeight: '600',
     borderColor: '#cc3d35',
     color: '#cc3d35'
-  };
+});
 
-  // 本地文件地址
-  imagePath: string = '';
-  
-  // 图片预览遮罩
-  show: boolean = false;
-  
-  // 加载动画
-  loading: boolean = false;
-  
-  showCamera: boolean = false;
-  
-  // 抠图设置 - 默认选择 150 DPI 作为打印尺寸标记
-  selectedModel: string = 'hivision_modnet';
-  dpi: number = 150;
-  
-  // 抠图处理方式选项
-  mattingModels = [
+const imagePath = ref<string>('');
+
+const show = ref<boolean>(false);
+
+const loading = ref<boolean>(false);
+
+const showCamera = ref<boolean>(false);
+
+const selectedModel = ref<string>('hivision_modnet');
+
+const dpi = ref<number>(150);
+
+const mattingModels = ref([
     { label: '高精度', value: 'modnet_photographic_portrait_matting' },
     { label: '标准版', value: 'hivision_modnet' },
     { label: '增强版', value: 'birefnet-v1-lite' }
-  ];
-  
-  // DPI选项
-  dpiOptions = [
+]);
+
+const dpiOptions = ref([
     { label: '150 DPI', value: 150 },
     { label: '300 DPI', value: 300 },
     { label: '600 DPI', value: 600 }
-  ];
+]);
 
-  onLoad(options: any) {
-    if (!options || !options.image) return;
-    try { this.imagePath = decodeURIComponent(options.image); }
-    catch (_) { this.imagePath = options.image; }
-    this.show = !!this.imagePath;
-  }
+function handleOnLoad(options: any) {
+    if (!options || !options.image)
+        return;
+    try {
+        imagePath.value = decodeURIComponent(options.image);
+    }
+    catch (_) {
+        imagePath.value = options.image;
+    }
+    show.value = !!imagePath.value;
+}
 
-  mounted() {
+function handleOnMounted() {
     // 显示分享菜单，包括分享到朋友圈
     // #ifdef MP-WEIXIN
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: (res: any) => {
-        console.log('显示分享菜单成功', res);
-      },
-      fail: (err: any) => {
-        console.log('显示分享菜单失败', err);
-      }
+        menus: ['shareAppMessage', 'shareTimeline'],
+        fail: () => {
+            // No shareTimeline permission on some AppIDs: keep the basic share entry.
+            wx.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+        }
     });
     // #endif
-  }
+}
 
-  /**
-   * 选择图片
-   */
-  chooseImage(type: 'album' | 'camera') {
+function chooseImage(type: 'album' | 'camera') {
     if (type === 'camera') {
-      this.openCamera();
-      return;
+        openCamera();
+        return;
     }
-
     // 从相册选择，直接处理，不显示预览弹窗
     // #ifdef H5
     uni.chooseImage({
-      count: 1,
-      sourceType: [type],
-      success: (res) => {
-        const path = res.tempFilePaths[0];
-        this.imagePath = path;
-        // 直接进行处理，不显示预览弹窗
-        this.confirmSelect();
-      }
+        count: 1,
+        sourceType: [type],
+        success: (res) => {
+            const path = res.tempFilePaths[0];
+            imagePath.value = path;
+            // 直接进行处理，不显示预览弹窗
+            confirmSelect();
+        }
     });
     // #endif
-
     // #ifdef MP-WEIXIN
     uni.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: [type],
-      success: (res) => {
-        const path = res.tempFiles[0].tempFilePath;
-        this.imagePath = path;
-        // 直接进行处理，不显示预览弹窗
-        this.confirmSelect();
-      }
+        count: 1,
+        mediaType: ['image'],
+        sourceType: [type],
+        success: (res) => {
+            const path = res.tempFiles[0].tempFilePath;
+            imagePath.value = path;
+            // 直接进行处理，不显示预览弹窗
+            confirmSelect();
+        }
     });
     // #endif
-  }
+}
 
-  openCamera() { this.showCamera = true; }
-  onCameraSelect(path: string) {
-    this.showCamera = false;
-    this.imagePath = path;
-    this.confirmSelect();
-  }
+function openCamera() {
+    showCamera.value = true;
+}
 
-  /**
-   * 确认选择
-   */
+function onCameraSelect(path: string) {
+    showCamera.value = false;
+    imagePath.value = path;
+    confirmSelect();
+}
 
-  lastResultPath='';lastResultSource='';
-  async keepDraft() { await rememberDraft('matting',{source:this.imagePath,result:this.lastResultSource===this.imagePath?this.lastResultPath:''},{selectedModel:this.selectedModel,dpi:this.dpi}); }
-  onHide() { if(this.imagePath && !this.loading)this.keepDraft(); }
-  restoreDraft(draft:TaskDraft) {
-    this.imagePath=draft.files.source;this.lastResultPath=draft.files.result||'';this.lastResultSource=this.imagePath;if(draft.state.selectedModel!==undefined)this.selectedModel=draft.state.selectedModel;if(draft.state.dpi!==undefined)this.dpi=draft.state.dpi;
-    this.show=true;
-    if(this.lastResultPath)uni.navigateTo({url:'/pages/matting/result?image='+encodeURIComponent(this.lastResultPath)});
-  }
+const lastResultPath = ref('');
 
-  async confirmSelect() {
-    if (this.loading) return;
-    if (!this.imagePath) { uni.showToast({ title: '请先选择图片', icon: 'none' }); return; }
-    this.loading = true;
+const lastResultSource = ref('');
+
+async function keepDraft() {
+    await rememberDraft('matting', { source: imagePath.value, result: lastResultSource.value === imagePath.value ? lastResultPath.value : '' }, { selectedModel: selectedModel.value, dpi: dpi.value });
+}
+
+function handleOnHide() {
+    if (imagePath.value && !loading.value)
+        keepDraft();
+}
+
+function restoreDraft(draft:TaskDraft) {
+    imagePath.value = draft.files.source;
+    lastResultPath.value = draft.files.result || '';
+    lastResultSource.value = imagePath.value;
+    if (draft.state.selectedModel !== undefined)
+        selectedModel.value = draft.state.selectedModel;
+    if (draft.state.dpi !== undefined)
+        dpi.value = draft.state.dpi;
+    show.value = true;
+    if (lastResultPath.value)
+        uni.navigateTo({ url: '/pages/matting/result?image=' + encodeURIComponent(lastResultPath.value) });
+}
+
+async function confirmSelect() {
+    if (loading.value)
+        return;
+    if (!imagePath.value) {
+        uni.showToast({ title: '请先选择图片', icon: 'none' });
+        return;
+    }
+    loading.value = true;
     let resultPath = '';
     try {
-      await this.keepDraft();
-      const params: MattingParams = { human_matting_model: this.selectedModel, dpi: this.dpi };
-      const data = await humanMatting(params, 'input_image', this.imagePath);
-      resultPath = await writeTemporaryImage(data.image_base64, 'matting');
-      this.lastResultPath=resultPath;this.lastResultSource=this.imagePath;
-      await this.keepDraft();
-      await new Promise<void>((resolve, reject) => uni.navigateTo({
-        url: `/pages/matting/result?image=${encodeURIComponent(resultPath)}`,
-        success: () => resolve(), fail: () => reject(new Error('打开结果页面失败，请重试'))
-      }));
-    } catch (err: any) {
-      removeTemporaryImage(resultPath);
-      uni.showModal({ title: '处理失败', content: err.message || '图片处理失败，请重试', showCancel: false });
-    } finally { this.loading = false; }
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
+        await keepDraft();
+        const params: MattingParams = { human_matting_model: selectedModel.value, dpi: dpi.value };
+        const data = await humanMatting(params, 'input_image', imagePath.value);
+        resultPath = await writeTemporaryImage(data.image_base64, 'matting');
+        lastResultPath.value = resultPath;
+        lastResultSource.value = imagePath.value;
+        await keepDraft();
+        await new Promise<void>((resolve, reject) => uni.navigateTo({
+            url: `/pages/matting/result?image=${encodeURIComponent(resultPath)}`,
+            success: () => resolve(), fail: () => reject(new Error('打开结果页面失败，请重试'))
+        }));
+    }
+    catch (err: any) {
+        removeTemporaryImage(resultPath);
+        uni.showModal({ title: '处理失败', content: err.message || '图片处理失败，请重试', showCancel: false });
+    }
+    finally {
+        loading.value = false;
+    }
 }
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onMounted(handleOnMounted);
+
+onLoad(handleOnLoad);
+
+onHide(handleOnHide);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>
@@ -733,13 +751,13 @@ $shadow-heavy: 0 16rpx 48rpx rgba(0, 0, 0, 0.12);
   }
 }
 
-.content-container > * {
+.content-container > view {
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.content-container > *:nth-child(1) { animation-delay: 0.1s; }
-.content-container > *:nth-child(2) { animation-delay: 0.2s; }
-.content-container > *:nth-child(3) { animation-delay: 0.3s; }
+.content-container > view:nth-child(1) { animation-delay: 0.1s; }
+.content-container > view:nth-child(2) { animation-delay: 0.2s; }
+.content-container > view:nth-child(3) { animation-delay: 0.3s; }
 
 @import '@/assets/legacy-page-themes.scss';
 @include tool-page-theme;

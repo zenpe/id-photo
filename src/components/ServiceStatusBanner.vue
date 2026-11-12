@@ -9,20 +9,12 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-export default Vue.extend({
-  props: { state: { type: String, default: 'checking' } },
-  computed: {
-    title(): string {
-      return ({ checking: '正在检查服务', ok: '服务连接正常', degraded: '部分服务可能受影响', offline: '暂时无法连接服务' } as any)[this.state] || '服务状态待检查';
-    },
-    description(): string {
-      return ({ checking: '请稍候', ok: '基础检查通过', degraded: '可查看受影响的功能', offline: '请检查网络，或稍后重试' } as any)[this.state] || '';
-    }
-  },
-  methods: { openStatus() { uni.navigateTo({ url: '/pages/status/index' }); } }
-});
+<script setup lang="ts">
+import { computed } from 'vue';
+const props = defineProps({ state: { type: String, default: 'checking' } });
+const title = computed(() => ({ checking: '正在检查服务', ok: '服务连接正常', degraded: '部分服务可能受影响', offline: '暂时无法连接服务' } as Record<string, string>)[props.state] || '服务状态待检查');
+const description = computed(() => ({ checking: '请稍候', ok: '基础检查通过', degraded: '可查看受影响的功能', offline: '请检查网络，或稍后重试' } as Record<string, string>)[props.state] || '');
+function openStatus() { uni.navigateTo({ url: '/pages/status/index' }); }
 </script>
 
 <style lang="scss" scoped>

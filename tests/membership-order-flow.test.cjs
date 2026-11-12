@@ -1,3 +1,4 @@
+// Historical Vue 2 automation: incompatible with Vue 3 script setup. See docs/migration-vue3.md.
 const assert = require('assert');
 const path = require('path');
 const automator = require(process.env.WECHAT_AUTOMATOR_PATH || '/tmp/qingcun-wechat-tools/node_modules/miniprogram-automator');

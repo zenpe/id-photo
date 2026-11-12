@@ -9,17 +9,15 @@
     <view v-if="actionText" class="state-action" role="button" @click="$emit('action')">{{ actionText }}</view>
   </view>
 </template>
-<script lang="ts">
-import Vue from 'vue';
-export default Vue.extend({
-  props: {
+<script setup lang="ts">
+defineProps({
     kind: { type: String, default: 'empty' },
     title: { type: String, required: true },
     description: { type: String, default: '' },
     actionText: { type: String, default: '' },
     icon: { type: String, default: '' }
-  }
 });
+defineEmits(['action']);
 </script>
 <style lang="scss" scoped>
 @import '@/assets/design-tokens.scss';

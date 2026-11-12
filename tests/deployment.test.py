@@ -46,4 +46,10 @@ class DeploymentTests(unittest.TestCase):
         with TestClient(miniapp_admin.app,base_url='http://127.0.0.1:8091',client=('172.18.0.2',1234)) as client:
             self.assertEqual(client.get('/').status_code,403)
 
-if __name__=='__main__':unittest.main()
+if __name__=='__main__':
+    try:
+        unittest.main()
+    finally:
+        from miniapp_telemetry import writer
+        writer.queue.join()
+        data.cleanup()

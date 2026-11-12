@@ -284,562 +284,484 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component, Watch } from "vue-property-decorator";
+<script setup lang="ts">
 import { AddBackgroudColor, GenerateLayoutPhoto } from '@/api/photo'
 import { AddWatermark, SetKb, IdphotoCrop, ImageEnhancementParams, WatermarkParams } from '@/api/photo-enhanced'
 import { Colors } from '@/model/Colors'
-import { Getter, Mutation } from 'vuex-class';
 import { PhotoSize } from '@/model/PhotoSize';
-import { cloneDeep } from 'lodash'
-import { PhotoPath } from '@/model/Interfaces'
+
 import StorageManager from '@/utils/storage';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
+import { productConfig } from '@/config';
+import { usePhotoStore } from '@/store/modules/photo';
+import { ref, computed, watch } from 'vue';
+import { onLoad, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { LoadingOverlay } })
-export default class EnhancedEdit extends Vue {
-  colors = { ...Colors };
-  
-  // 当前状态
-  currentBackgroundColor: string = Colors[0];
-  isHd: boolean = true;
-  currentImage: string = '';
-  originalImage: string = '';
-  
-  // 控制显示
-  showColorPicker: boolean = true;
-  showEnhancement: boolean = false;
-  showCompare: boolean = false;
-  watermarkEnabled: boolean = false;
-  showActions: boolean = false;
-  showCustomColor: boolean = false;
-  showSizeAdjust: boolean = false;
-  saving: boolean = false;
-  loadingMessages: string[] = [];
-  startProcessing(text: string) { this.loadingMessages.push(text); }
-  finishProcessing() { this.loadingMessages.pop(); }
-  
-  // 参数设置
-  enhancementParams: ImageEnhancementParams = {
+const photoStore = usePhotoStore();
+
+const photoSize = computed(() => photoStore.photoConfig);
+
+const photoPath = computed(() => photoStore.photoPath);
+
+const setPhotoPath = photoStore.setPhotoPath;
+
+const colors = ref({ ...Colors });
+
+const currentBackgroundColor = ref<string>(Colors[0]);
+
+const isHd = ref<boolean>(true);
+
+const currentImage = ref<string>('');
+
+const originalImage = ref<string>('');
+
+const showColorPicker = ref<boolean>(true);
+
+const showEnhancement = ref<boolean>(false);
+
+const showCompare = ref<boolean>(false);
+
+const watermarkEnabled = ref<boolean>(false);
+
+const showActions = ref<boolean>(false);
+
+const showCustomColor = ref<boolean>(false);
+
+const showSizeAdjust = ref<boolean>(false);
+
+const saving = ref<boolean>(false);
+
+const loadingMessages = ref<string[]>([]);
+
+function startProcessing(text: string) {
+    loadingMessages.value.push(text);
+}
+
+function finishProcessing() {
+    loadingMessages.value.pop();
+}
+
+const enhancementParams = ref<ImageEnhancementParams>({
     brightness_strength: 0,
     contrast_strength: 0,
     sharpen_strength: 0,
     saturation_strength: 0
-  };
-  
-  watermarkParams: WatermarkParams = {
+});
+
+const watermarkParams = ref<WatermarkParams>({
     text: '证件照',
     size: 20,
     opacity: 50,
     angle: 30,
     color: '#000000',
     space: 25
-  };
-  
-  customColorValue: string = '';
-  targetKb: string = '';
-  
-  // 操作列表
-  actionList = [
+});
+
+const customColorValue = ref<string>('');
+
+const targetKb = ref<string>('');
+
+const actionList = ref([
     {
-      name: '保存到历史记录',
-      id: 'save_history'
+        name: '保存到历史记录',
+        id: 'save_history'
     },
     {
-      name: '分享图片',
-      id: 'share'
+        name: '分享图片',
+        id: 'share'
     },
     {
-      name: '重新制作',
-      id: 'remake'
+        name: '重新制作',
+        id: 'remake'
     }
-  ];
+]);
 
-  // vuex中的图片大小信息
-  @Getter('photoConfig') photoSize!: PhotoSize;
-  @Getter('photoPath') photoPath!: PhotoPath;
-  
-  // 设置图片base64地址
-  @Mutation('SET_PHOTO_PATH') setPhotoPath!: (data: PhotoPath) => void;
+const standard_width = ref(700);
 
-  // 标准宽度
-  readonly standard_width = 700;
+function handleOnLoad(options: any) {
+    initFromOptions(options);
+}
 
-  onLoad(options: any) {
-    this.initFromOptions(options);
-  }
-
-  @Watch('photoPath', { immediate: true })
-  onPhotoPathChange() {
-    if (this.photoPath) {
-      this.currentImage = this.isHd ? this.photoPath.base64HD : this.photoPath.base64;
-      this.originalImage = this.photoPath.base64;
+function onPhotoPathChange() {
+    if (photoPath.value) {
+        currentImage.value = isHd.value ? photoPath.value.base64HD : photoPath.value.base64;
+        originalImage.value = photoPath.value.base64;
     }
-  }
+}
 
-  /**
-   * 从路由参数初始化
-   */
-  initFromOptions(options: any) {
+function initFromOptions(options: any) {
     if (options.history) {
-      // 从历史记录恢复
-      const history = JSON.parse(decodeURIComponent(options.history));
-      this.currentBackgroundColor = history.parameters.backgroundColor;
-      this.isHd = history.parameters.isHd;
-      if (history.parameters.enhancement) {
-        this.enhancementParams = { ...history.parameters.enhancement };
-      }
-      if (history.parameters.watermark) {
-        this.watermarkParams = { ...history.parameters.watermark };
-        this.watermarkEnabled = true;
-      }
+        // 从历史记录恢复
+        const history = JSON.parse(decodeURIComponent(options.history));
+        currentBackgroundColor.value = history.parameters.backgroundColor;
+        isHd.value = history.parameters.isHd;
+        if (history.parameters.enhancement) {
+            enhancementParams.value = { ...history.parameters.enhancement };
+        }
+        if (history.parameters.watermark) {
+            watermarkParams.value = { ...history.parameters.watermark };
+            watermarkEnabled.value = true;
+        }
     }
-  }
+}
 
-  get imageHeight() {
-    const { pxHeight, pxWidth } = this.photoSize;
+const imageHeight = computed(() => {
+    const { pxHeight, pxWidth } = photoSize.value;
     if (Number(pxHeight) > Number(pxWidth)) {
-      return this.standard_width + 'rpx';
-    } else {
-      return (this.standard_width / pxWidth * pxHeight) + 'rpx';
+        return standard_width.value + 'rpx';
     }
-  }
+    else {
+        return (standard_width.value / pxWidth * pxHeight) + 'rpx';
+    }
+});
 
-  get imageWidth() {
-    const { pxHeight, pxWidth } = this.photoSize;
+const imageWidth = computed(() => {
+    const { pxHeight, pxWidth } = photoSize.value;
     if (Number(pxWidth) > Number(pxHeight)) {
-      return this.standard_width + 'rpx';
-    } else {
-      return (this.standard_width / pxHeight * pxWidth) + 'rpx';
+        return standard_width.value + 'rpx';
     }
-  }
+    else {
+        return (standard_width.value / pxHeight * pxWidth) + 'rpx';
+    }
+});
 
-  /**
-   * 返回上一页
-   */
-  goBack() {
+function goBack() {
     uni.navigateBack();
-  }
+}
 
-  /**
-   * 显示更多操作
-   */
-  showMoreActions() {
-    this.showActions = true;
-  }
+function showMoreActions() {
+    showActions.value = true;
+}
 
-  /**
-   * 处理操作选择
-   */
-  onActionSelect(action: any) {
+function onActionSelect(action: any) {
     switch (action.id) {
-      case 'save_history':
-        this.saveToHistory();
-        break;
-      case 'share':
-        this.shareImage();
-        break;
-      case 'remake':
-        this.remakePhoto();
-        break;
+        case 'save_history':
+            saveToHistory();
+            break;
+        case 'share':
+            shareImage();
+            break;
+        case 'remake':
+            remakePhoto();
+            break;
     }
-    this.showActions = false;
-  }
+    showActions.value = false;
+}
 
-  /**
-   * 修改背景色
-   */
-  changeBackgroundColor(color: string) {
-    this.currentBackgroundColor = color;
-    this.applyBackgroundColor();
-  }
+function changeBackgroundColor(color: string) {
+    currentBackgroundColor.value = color;
+    applyBackgroundColor();
+}
 
-  /**
-   * 应用背景色
-   */
-  async applyBackgroundColor() {
+async function applyBackgroundColor() {
     try {
-      this.startProcessing('正在处理照片');
-      
-      const targetImage = this.isHd ? this.photoPath.base64HDPath : this.photoPath.base64Path;
-      const form = {
-        color: this.currentBackgroundColor.replace('#', ''),
-        dpi: 300
-      };
-      
-      const res = await AddBackgroudColor(form, 'input_image', targetImage);
-      const colorBase64 = res['image_base64'];
-      
-      if (colorBase64) {
-        this.currentImage = 'data:image/png;base64,' + colorBase64;
-      }
-    } catch (error) {
-      uni.showToast({ title: '处理失败', icon: 'none' });
-    } finally {
-      this.finishProcessing();
+        startProcessing('正在处理照片');
+        const targetImage = isHd.value ? photoPath.value.base64HDPath : photoPath.value.base64Path;
+        const form = {
+            color: currentBackgroundColor.value.replace('#', ''),
+            dpi: 300
+        };
+        const res = await AddBackgroudColor(form, 'input_image', targetImage);
+        const colorBase64 = res['image_base64'];
+        if (colorBase64) {
+            currentImage.value = 'data:image/png;base64,' + colorBase64;
+        }
     }
-  }
+    catch (error) {
+        uni.showToast({ title: '处理失败', icon: 'none' });
+    }
+    finally {
+        finishProcessing();
+    }
+}
 
-  /**
-   * 切换图片质量
-   */
-  toggleQuality(hd: boolean) {
-    this.isHd = hd;
-    this.currentImage = hd ? this.photoPath.base64HD : this.photoPath.base64;
-  }
+function toggleQuality(hd: boolean) {
+    isHd.value = hd;
+    currentImage.value = hd ? photoPath.value.base64HD : photoPath.value.base64;
+}
 
-  /**
-   * 图像增强参数变化
-   */
-  onEnhancementChange() {
+function onEnhancementChange() {
     // 实时预览增强效果（可选）
-  }
+}
 
-  /**
-   * 应用图像增强
-   */
-  async applyEnhancement() {
+async function applyEnhancement() {
     try {
-      this.startProcessing('正在调整照片');
-      
-      // 调用完整的图像处理流程，包含增强参数
-      await this.regenerateWithEnhancement();
-      
-      uni.showToast({ title: '增强成功', icon: 'success' });
-    } catch (error) {
-      uni.showToast({ title: '增强失败', icon: 'none' });
-    } finally {
-      this.finishProcessing();
+        startProcessing('正在调整照片');
+        // 调用完整的图像处理流程，包含增强参数
+        await regenerateWithEnhancement();
+        uni.showToast({ title: '增强成功', icon: 'success' });
     }
-  }
+    catch (error) {
+        uni.showToast({ title: '增强失败', icon: 'none' });
+    }
+    finally {
+        finishProcessing();
+    }
+}
 
-  /**
-   * 重新生成包含增强参数的图片
-   */
-  async regenerateWithEnhancement() {
+async function regenerateWithEnhancement() {
     // 构建包含增强参数的处理参数
     const form = {
-      height: this.photoSize.pxHeight,
-      width: this.photoSize.pxWidth,
-      hd: this.isHd,
-      dpi: 300,
-      // 添加增强参数
-      brightness_strength: this.enhancementParams.brightness_strength,
-      contrast_strength: this.enhancementParams.contrast_strength,
-      sharpen_strength: this.enhancementParams.sharpen_strength,
-      saturation_strength: this.enhancementParams.saturation_strength
+        height: photoSize.value.pxHeight,
+        width: photoSize.value.pxWidth,
+        hd: isHd.value,
+        dpi: 300,
+        // 添加增强参数
+        brightness_strength: enhancementParams.value.brightness_strength,
+        contrast_strength: enhancementParams.value.contrast_strength,
+        sharpen_strength: enhancementParams.value.sharpen_strength,
+        saturation_strength: enhancementParams.value.saturation_strength
     };
-    
     // 先应用背景色
-    await this.applyBackgroundColor();
-    
+    await applyBackgroundColor();
     // 如果有水印，再应用水印
-    if (this.watermarkEnabled) {
-      await this.applyWatermark();
+    if (watermarkEnabled.value) {
+        await applyWatermark();
     }
-  }
-
-  /**
-   * 重置增强参数
-   */
-  resetEnhancement() {
-    this.enhancementParams = {
-      brightness_strength: 0,
-      contrast_strength: 0,
-      sharpen_strength: 0,
-      saturation_strength: 0
-    };
-  }
-
-  /**
-   * 水印开关变化
-   */
-  onWatermarkToggle(enabled: boolean) {
-    if (enabled) {
-      this.applyWatermark();
-    } else {
-      this.currentImage = this.isHd ? this.photoPath.base64HD : this.photoPath.base64;
-    }
-  }
-
-  /**
-   * 应用水印
-   */
-  async applyWatermark() {
-    try {
-      this.startProcessing('正在添加水印');
-      
-      const form = { ...this.watermarkParams };
-      const targetImage = this.currentImage;
-      
-      const res = await AddWatermark(form, 'input_image', targetImage);
-      const watermarkBase64 = res['image_base64'];
-      
-      if (watermarkBase64) {
-        this.currentImage = 'data:image/png;base64,' + watermarkBase64;
-      }
-    } catch (error) {
-      uni.showToast({ title: '水印添加失败', icon: 'none' });
-    } finally {
-      this.finishProcessing();
-    }
-  }
-
-  /**
-   * 切换对比显示
-   */
-  toggleCompare() {
-    this.showCompare = !this.showCompare;
-  }
-
-  /**
-   * 自动裁剪
-   */
-  async cropPhoto() {
-    try {
-      this.startProcessing('正在裁剪照片');
-      
-      const form = {
-        height: this.photoSize.pxHeight,
-        width: this.photoSize.pxWidth,
-        hd: this.isHd,
-        dpi: 300
-      };
-      
-      const targetImage = this.isHd ? this.photoPath.base64HDPath : this.photoPath.base64Path;
-      const res = await IdphotoCrop(form, 'input_image', targetImage);
-      const cropBase64 = res['image_base64'];
-      
-      if (cropBase64) {
-        this.currentImage = 'data:image/png;base64,' + cropBase64;
-        uni.showToast({ title: '裁剪成功', icon: 'success' });
-      }
-    } catch (error) {
-      uni.showToast({ title: '裁剪失败', icon: 'none' });
-    } finally {
-      this.finishProcessing();
-    }
-  }
-
-  /**
-   * 调整大小
-   */
-  adjustSize() {
-    this.showSizeAdjust = true;
-  }
-
-  /**
-   * 应用大小调整
-   */
-  async applySizeAdjust() {
-    if (!this.targetKb) {
-      uni.showToast({ title: '请输入文件大小', icon: 'none' });
-      return;
-    }
-    
-    try {
-      this.startProcessing('正在调整大小');
-      
-      const form = {
-        kb: parseInt(this.targetKb),
-        dpi: 300
-      };
-      
-      const targetImage = this.currentImage;
-      const res = await SetKb(form, 'input_image', targetImage);
-      const kbBase64 = res['image_base64'];
-      
-      if (kbBase64) {
-        this.currentImage = 'data:image/png;base64,' + kbBase64;
-        uni.showToast({ title: '调整成功', icon: 'success' });
-        this.showSizeAdjust = false;
-      }
-    } catch (error) {
-      uni.showToast({ title: '调整失败', icon: 'none' });
-    } finally {
-      this.finishProcessing();
-    }
-  }
-
-  /**
-   * 显示自定义颜色对话框
-   */
-  showCustomColorDialog() {
-    this.showCustomColor = true;
-  }
-
-  /**
-   * 应用自定义颜色
-   */
-  applyCustomColor() {
-    if (this.customColorValue) {
-      this.changeBackgroundColor(this.customColorValue);
-      this.showCustomColor = false;
-    }
-  }
-
-  /**
-   * 保存当前照片
-   */
-  async saveCurrentPhoto() {
-    this.saving = true;
-    try {
-      const tempPath = await this.saveImageToLocal(this.currentImage);
-      await this.saveToAlbum(tempPath);
-      
-      // 保存到历史记录
-      await this.saveToHistory();
-      
-      uni.showToast({ title: '保存成功', icon: 'success' });
-    } catch (error) {
-      uni.showToast({ title: '保存失败', icon: 'none' });
-    } finally {
-      this.saving = false;
-    }
-  }
-
-  /**
-   * 生成排版照
-   */
-  async generateLayoutPhoto() {
-    try {
-      this.startProcessing('正在生成排版照');
-      
-      const form = {
-        height: this.photoSize.pxHeight,
-        width: this.photoSize.pxWidth
-      };
-      
-      // 先生成带背景色的图片
-      await this.applyBackgroundColor();
-      
-      const res = await GenerateLayoutPhoto(form, 'input_image', this.currentImage);
-      const layoutBase64 = res['image_base64'];
-      
-      if (layoutBase64) {
-        const tempPath = await this.saveImageToLocal('data:image/png;base64,' + layoutBase64);
-        await this.saveToAlbum(tempPath);
-        uni.showToast({ title: '排版照保存成功', icon: 'success' });
-      }
-    } catch (error) {
-      uni.showToast({ title: '生成失败', icon: 'none' });
-    } finally {
-      this.finishProcessing();
-    }
-  }
-
-  /**
-   * 保存图片到本地
-   */
-  async saveImageToLocal(base64: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const tempPath = `${wx.env.USER_DATA_PATH}/photo_${Date.now()}.png`;
-      const fs = uni.getFileSystemManager();
-      
-      fs.writeFile({
-        filePath: tempPath,
-        data: base64.replace('data:image/png;base64,', ''),
-        encoding: 'base64',
-        success: () => resolve(tempPath),
-        fail: reject
-      });
-    });
-  }
-
-  /**
-   * 保存到相册
-   */
-  async saveToAlbum(tempPath: string) {
-    return new Promise((resolve, reject) => {
-      uni.saveImageToPhotosAlbum({
-        filePath: tempPath,
-        success: resolve,
-        fail: reject
-      });
-    });
-  }
-
-  /**
-   * 保存到历史记录
-   */
-  async saveToHistory() {
-    const record = {
-      originalImage: this.originalImage,
-      resultImages: {
-        idPhoto: this.currentImage
-      },
-      parameters: {
-        size: this.photoSize,
-        backgroundColor: this.currentBackgroundColor,
-        isHd: this.isHd,
-        enhancement: this.enhancementParams,
-        watermark: this.watermarkEnabled ? this.watermarkParams : undefined
-      }
-    };
-    
-    StorageManager.savePhotoRecord(record);
-  }
-
-  /**
-   * 分享图片
-   */
-  shareImage() {
-    uni.share({
-      provider: 'weixin',
-      scene: 'WXSceneSession',
-      type: 0,
-      imageUrl: this.currentImage,
-      success: () => {
-        uni.showToast({ title: '分享成功', icon: 'success' });
-      },
-      fail: () => {
-        uni.showToast({ title: '分享失败', icon: 'none' });
-      }
-    });
-  }
-
-  /**
-   * 重新制作
-   */
-  remakePhoto() {
-    uni.navigateBack();
-  }
-
-  /**
-   * 分享成功回调 - 原生分享按钮使用
-   */
-  onShareSuccess() {
-    console.log('分享成功回调');
-    uni.showToast({
-      title: '分享成功',
-      icon: 'success',
-      duration: 2000
-    });
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
 }
+
+function resetEnhancement() {
+    enhancementParams.value = {
+        brightness_strength: 0,
+        contrast_strength: 0,
+        sharpen_strength: 0,
+        saturation_strength: 0
+    };
+}
+
+function onWatermarkToggle(enabled: boolean) {
+    if (enabled) {
+        applyWatermark();
+    }
+    else {
+        currentImage.value = isHd.value ? photoPath.value.base64HD : photoPath.value.base64;
+    }
+}
+
+async function applyWatermark() {
+    try {
+        startProcessing('正在添加水印');
+        const form = { ...watermarkParams.value };
+        const targetImage = currentImage.value;
+        const res = await AddWatermark(form, 'input_image', targetImage);
+        const watermarkBase64 = res['image_base64'];
+        if (watermarkBase64) {
+            currentImage.value = 'data:image/png;base64,' + watermarkBase64;
+        }
+    }
+    catch (error) {
+        uni.showToast({ title: '水印添加失败', icon: 'none' });
+    }
+    finally {
+        finishProcessing();
+    }
+}
+
+function toggleCompare() {
+    showCompare.value = !showCompare.value;
+}
+
+async function cropPhoto() {
+    try {
+        startProcessing('正在裁剪照片');
+        const form = {
+            height: photoSize.value.pxHeight,
+            width: photoSize.value.pxWidth,
+            hd: isHd.value,
+            dpi: 300
+        };
+        const targetImage = isHd.value ? photoPath.value.base64HDPath : photoPath.value.base64Path;
+        const res = await IdphotoCrop(form, 'input_image', targetImage);
+        const cropBase64 = res['image_base64'];
+        if (cropBase64) {
+            currentImage.value = 'data:image/png;base64,' + cropBase64;
+            uni.showToast({ title: '裁剪成功', icon: 'success' });
+        }
+    }
+    catch (error) {
+        uni.showToast({ title: '裁剪失败', icon: 'none' });
+    }
+    finally {
+        finishProcessing();
+    }
+}
+
+function adjustSize() {
+    showSizeAdjust.value = true;
+}
+
+async function applySizeAdjust() {
+    if (!targetKb.value) {
+        uni.showToast({ title: '请输入文件大小', icon: 'none' });
+        return;
+    }
+    try {
+        startProcessing('正在调整大小');
+        const form = {
+            kb: parseInt(targetKb.value),
+            dpi: 300
+        };
+        const targetImage = currentImage.value;
+        const res = await SetKb(form, 'input_image', targetImage);
+        const kbBase64 = res['image_base64'];
+        if (kbBase64) {
+            currentImage.value = 'data:image/png;base64,' + kbBase64;
+            uni.showToast({ title: '调整成功', icon: 'success' });
+            showSizeAdjust.value = false;
+        }
+    }
+    catch (error) {
+        uni.showToast({ title: '调整失败', icon: 'none' });
+    }
+    finally {
+        finishProcessing();
+    }
+}
+
+function showCustomColorDialog() {
+    showCustomColor.value = true;
+}
+
+function applyCustomColor() {
+    if (customColorValue.value) {
+        changeBackgroundColor(customColorValue.value);
+        showCustomColor.value = false;
+    }
+}
+
+async function saveCurrentPhoto() {
+    saving.value = true;
+    try {
+        const tempPath = await saveImageToLocal(currentImage.value);
+        await saveToAlbum(tempPath);
+        // 保存到历史记录
+        await saveToHistory();
+        uni.showToast({ title: '保存成功', icon: 'success' });
+    }
+    catch (error) {
+        uni.showToast({ title: '保存失败', icon: 'none' });
+    }
+    finally {
+        saving.value = false;
+    }
+}
+
+async function generateLayoutPhoto() {
+    try {
+        startProcessing('正在生成排版照');
+        const form = {
+            height: photoSize.value.pxHeight,
+            width: photoSize.value.pxWidth
+        };
+        // 先生成带背景色的图片
+        await applyBackgroundColor();
+        const res = await GenerateLayoutPhoto(form, 'input_image', currentImage.value);
+        const layoutBase64 = res['image_base64'];
+        if (layoutBase64) {
+            const tempPath = await saveImageToLocal('data:image/png;base64,' + layoutBase64);
+            await saveToAlbum(tempPath);
+            uni.showToast({ title: '排版照保存成功', icon: 'success' });
+        }
+    }
+    catch (error) {
+        uni.showToast({ title: '生成失败', icon: 'none' });
+    }
+    finally {
+        finishProcessing();
+    }
+}
+
+async function saveImageToLocal(base64: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const tempPath = `${wx.env.USER_DATA_PATH}/photo_${Date.now()}.png`;
+        const fs = uni.getFileSystemManager();
+        fs.writeFile({
+            filePath: tempPath,
+            data: base64.replace('data:image/png;base64,', ''),
+            encoding: 'base64',
+            success: () => resolve(tempPath),
+            fail: reject
+        });
+    });
+}
+
+async function saveToAlbum(tempPath: string) {
+    return new Promise((resolve, reject) => {
+        uni.saveImageToPhotosAlbum({
+            filePath: tempPath,
+            success: resolve,
+            fail: reject
+        });
+    });
+}
+
+async function saveToHistory() {
+    const record = {
+        originalImage: originalImage.value,
+        resultImages: {
+            idPhoto: currentImage.value
+        },
+        parameters: {
+            size: photoSize.value,
+            backgroundColor: currentBackgroundColor.value,
+            isHd: isHd.value,
+            enhancement: enhancementParams.value,
+            watermark: watermarkEnabled.value ? watermarkParams.value : undefined
+        }
+    };
+    StorageManager.savePhotoRecord(record);
+}
+
+function shareImage() {
+    uni.share({
+        provider: 'weixin',
+        scene: 'WXSceneSession',
+        type: 0,
+        imageUrl: currentImage.value,
+        success: () => {
+            uni.showToast({ title: '分享成功', icon: 'success' });
+        },
+        fail: () => {
+            uni.showToast({ title: '分享失败', icon: 'none' });
+        }
+    });
+}
+
+function remakePhoto() {
+    uni.navigateBack();
+}
+
+function onShareSuccess() {
+    uni.showToast({
+        title: '分享成功',
+        icon: 'success',
+        duration: 2000
+    });
+}
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+watch(photoPath, onPhotoPathChange, { immediate: true });
+
+onLoad(handleOnLoad);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

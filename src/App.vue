@@ -1,104 +1,55 @@
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
+import { onLaunch, onShow } from '@dcloudio/uni-app';
 import StorageManager from '@/utils/storage';
 import { pruneDrafts } from '@/utils/task-draft';
 import { refreshCapabilities } from '@/api/capabilities';
 
-// 声明微信小程序类型
-declare const wx: any;
-
-export default Vue.extend({
-    mpType: 'app',
-    onLaunch() {
-        console.log('App Launch');
-        this.initApp();
-        pruneDrafts();
-        this.initGlobalShare();
-    },
-    onShow() {
-        refreshCapabilities();
-        console.log('App Show');
-        // #ifndef APP-NVUE
-        uni.requireNativePlugin = () => { };
-        // #endif
-    },
-    onHide() {
-        console.log('App Hide');
-    },
-    methods: {
-        /**
-         * 初始化应用
-         */
-        initApp() {
-            try {
-                // 初始化存储系统
-                StorageManager.getUserId();
-                console.log('Storage initialized successfully');
-                
-                // 检查更新（可选）
-                this.checkForUpdate();
-                
-            } catch (error) {
-                console.error('App initialization failed:', error);
-            }
-        },
-        
-        /**
-         * 初始化全局分享功能
-         */
-        initGlobalShare() {
-            // #ifdef MP-WEIXIN
-            // 全局开启分享功能
-            wx.showShareMenu({
-                withShareTicket: true,
-                menus: ['shareAppMessage', 'shareTimeline'],
-                success: () => {
-                    console.log('全局分享功能开启成功');
-                },
-                fail: (err: any) => {
-                    console.error('全局分享功能开启失败:', err);
-                }
-            });
-            // #endif
-        },
-        
-        /**
-         * 检查应用更新
-         */
-        checkForUpdate() {
-            // #ifdef MP-WEIXIN
-            const updateManager = uni.getUpdateManager();
-            
-            updateManager.onCheckForUpdate((res) => {
-                console.log('Update check result:', res.hasUpdate);
-            });
-            
-            updateManager.onUpdateReady(() => {
-                uni.showModal({
-                    title: '更新提示',
-                    content: '新版本已经准备好，是否重启应用？',
-                    success(res) {
-                        if (res.confirm) {
-                            updateManager.applyUpdate();
-                        }
-                    }
-                });
-            });
-            
-            updateManager.onUpdateFailed(() => {
-                uni.showToast({
-                    title: '更新失败',
-                    icon: 'none'
-                });
-            });
-            // #endif
-        }
-    }
+onLaunch(() => {
+  try {
+    StorageManager.getUserId();
+    pruneDrafts();
+    checkForUpdate();
+  } catch (error) { console.error('App initialization failed:', error); }
+  enableShareMenu();
 });
+onShow(() => { refreshCapabilities(); });
+
+function enableShareMenu() {
+  // #ifdef MP-WEIXIN
+  try {
+    uni.showShareMenu({
+      withShareTicket: true,
+      menus: ['shareAppMessage', 'shareTimeline'],
+      fail: () => {
+        // Some AppIDs / developer-tool sessions have no shareTimeline permission.
+        // Retry with the basic share entry only, and never fail app startup.
+        uni.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+      }
+    });
+  } catch (_) { /* Sharing is optional; never block app startup. */ }
+  // #endif
+}
+
+function checkForUpdate() {
+  // #ifdef MP-WEIXIN
+  const manager = uni.getUpdateManager();
+  manager.onUpdateReady(() => {
+    uni.showModal({ title: '更新提示', content: '新版本已经准备好，是否重启应用？',
+      success: result => { if (result.confirm) manager.applyUpdate(); }
+    });
+  });
+  manager.onUpdateFailed(() => { uni.showToast({ title: '更新失败', icon: 'none' }); });
+  // #endif
+}
 </script>
 
+
 <style lang="scss">
-@import "uview-ui/index.scss";
+@import "uview-plus/index.scss";
+@import '@/assets/common.scss';
+
+page { height: 100%; }
+view { box-sizing: border-box; }
 
 /* 全局样式 */
 page {

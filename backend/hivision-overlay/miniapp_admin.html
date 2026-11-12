@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>小七快照拍 · 运营后台</title>
+  <title>{{BRAND_SHORT_NAME}} · 管理后台</title>
   <link rel="stylesheet" href="/admin.css">
   <script defer src="/admin.js"></script>
 </head>
 <body>
 <div class="app-shell">
   <aside class="sidebar">
-    <div class="brand"><div class="brand-mark">七</div><div><strong>小七快照拍</strong><span>运营管理后台</span></div></div>
+    <div class="brand"><img class="brand-mark" src="/brand-logo.svg" alt="" /><div><strong data-brand-name>{{BRAND_SHORT_NAME}}</strong><span>管理后台</span></div></div>
     <div class="nav-caption">工作台</div>
     <nav class="navigation" aria-label="管理菜单">
       <button data-nav="overview" class="nav-item active"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>运营概览</button>
@@ -24,7 +24,7 @@
     <div class="sidebar-footer"><span class="lock-icon">●</span><span><b id="access-mode">本机安全访问</b><small id="access-detail">仅限此设备使用</small></span></div>
   </aside>
   <main class="main">
-    <header class="topbar"><div><span class="eyebrow">小七快照拍 / 管理后台</span><h1 id="page-title">运营概览</h1><p id="page-description">在这里查看会员、订单和服务运行情况。</p></div><div class="header-actions"><span id="last-updated" class="updated"></span><button id="refresh-page" class="button secondary">↻ 刷新</button></div></header>
+    <header class="topbar"><div><span class="eyebrow">{{BRAND_SHORT_NAME}} / 管理后台</span><h1 id="page-title">运营概览</h1><p id="page-description">在这里查看会员、订单和服务运行情况。</p></div><div class="header-actions"><span id="last-updated" class="updated"></span><button id="refresh-page" class="button secondary">↻ 刷新</button></div></header>
     <div id="app-alert" class="alert error" role="alert" hidden></div>
     <section class="view" id="view-overview">
       <div class="welcome"><div><span class="welcome-kicker">YOUR WORKSPACE</span><h2>让每一次拍摄，都更简单。</h2><p>快速掌握小程序的服务和会员运营情况。</p></div><span class="welcome-illustration" aria-hidden="true">✦</span></div>
@@ -60,7 +60,7 @@
       <article class="card narrow-card"><div class="card-heading"><div><h2>工作台偏好</h2><p>设置保存后立即应用于此后台。</p></div></div><form id="settings-form" class="settings-form"><label>概览与服务状态自动刷新<select id="settings-refresh"><option value="0">关闭自动刷新</option><option value="15">每 15 秒</option><option value="30">每 30 秒</option><option value="60">每 60 秒</option><option value="120">每 2 分钟</option></select></label><label>列表每页显示<select id="settings-page-size"><option value="10">10 条</option><option value="20">20 条</option><option value="50">50 条</option></select></label><div><button class="button primary" type="submit">保存设置</button></div></form></article>
       <article class="card narrow-card"><div class="card-heading"><div><h2>运行配置</h2><p>当前服务报告的状态，不在此处修改支付开关。</p></div></div><div id="settings-runtime" class="runtime-line loading">正在检查…</div><p class="footnote">正式购买开关由服务端环境配置控制；会员用户免广告，普通用户继续使用激励广告。</p></article>
     </section>
-    <footer><span id="footer-label">小七快照拍 · 本机运营后台</span><span>数据以实际服务与微信平台为准</span></footer>
+    <footer><span id="footer-label">{{BRAND_SHORT_NAME}} · 管理后台</span><span>数据以实际服务与微信平台为准</span></footer>
   </main>
 </div>
 <dialog id="modal" class="modal"><div class="modal-header"><div><h2 id="modal-title"></h2><p id="modal-subtitle"></p></div><button class="icon-button" id="modal-close" aria-label="关闭">×</button></div><div id="modal-body"></div></dialog>

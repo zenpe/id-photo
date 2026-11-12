@@ -12,11 +12,7 @@ jobs:
         run: docker build --platform linux/amd64 -t id-photo-api:ci backend
       - name: Run backend regressions in the deployed runtime
         run: |
-          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/face-detection.test.py
-          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/capabilities.test.py
-          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/security-cache.test.py
-          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci python tests/startup-concurrency.test.py
-          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci sh -c 'pip install httpx==0.28.1 && python tests/deployment.test.py'
+          docker run --rm -v "$PWD:/workspace" -w /workspace id-photo-api:ci sh -c 'pip install httpx==0.28.1 && python scripts/test-backend.py'
       - name: Run actual default-model inference (public upstream fixture)
         run: docker run --rm -v "$PWD/backend/hivision-core/demo/images:/fixtures:ro" id-photo-api:ci python smoke_inference.py /fixtures/test0.jpg
       - name: Start isolated API

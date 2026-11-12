@@ -36,14 +36,11 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
+<script setup lang="ts">
 import { saveToAlbum, showSaveFailure } from '@/utils/album';
-import { Component } from 'vue-property-decorator';
-import { Getter, Mutation } from 'vuex-class';
 import { AddBackgroudColor, GenerateLayoutPhoto } from '@/api/photo';
 import { PhotoSize } from '@/model/PhotoSize';
-import { PhotoPath } from '@/model/Interfaces';
+
 import { ElectronicPhotoManager } from '@/utils/electronic-photo';
 import StorageManager from '@/utils/storage';
 import { adManager } from '@/utils/ad-manager';
@@ -51,100 +48,299 @@ import { rememberDraft, loadDraft } from '@/utils/task-draft';
 import { getMembershipStatus } from '@/api/membership';
 import { writeTemporaryImage, removeTemporaryImage, readImageBase64 } from '@/utils/image-file';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
-
 const colors = [
   { name: '白色', color: '#FFFFFF' }, { name: '蓝色', color: '#438edb' }, { name: '红色', color: '#D9001B' },
   { name: '浅蓝', color: '#7ec8e8' }, { name: '灰色', color: '#b8b8b8' }, { name: '深红', color: '#a8000f' },
   { name: '深蓝', color: '#1a3a5c' }, { name: '粉色', color: '#ffb6c1' }
 ];
+import { productConfig } from '@/config';
+import { usePhotoStore } from '@/store/modules/photo';
+import { ref, computed } from 'vue';
+import { onHide, onLoad, onShow, onUnload, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
 
-@Component({ components: { LoadingOverlay } })
-export default class PhotoEdit extends Vue {
-  @Getter('photoConfig') photoSize!: PhotoSize;
-  @Getter('photoPath') photoPath!: PhotoPath;
-  @Mutation('SET_PHOTO_PATH') setPhotoPath!: (data: PhotoPath) => void;
-  IDPhotoForm: any = { color: '#FFFFFF', kb: undefined, render: 0 };
-  isHd = true; saveToElectronic = false; busy = false; processing = false; cropLine = false;
-  outputMode = 'photo'; showMoreColors = false; settingsExpanded = false; paperIndex = 0;
-  actualDimensions = ''; memberState: 'member' | 'ordinary' | 'unknown' = 'unknown';
-  cachedPath=''; cachedKey=''; cachedOutput='';
-  async keepDraft(){ if(!this.photoPath)return;await rememberDraft('photo',{standard:this.photoPath.base64Path,hd:this.photoPath.base64HDPath,result:this.cachedPath},{stage:'editing',photoSize:this.photoSize,IDPhotoForm:{...this.IDPhotoForm},isHd:this.isHd,outputMode:this.outputMode,paperIndex:this.paperIndex,cropLine:this.cropLine,saveToElectronic:this.saveToElectronic,cachedKey:this.cachedKey}); }
-  onHide(){ if(!this.busy)this.keepDraft(); }
-  onLoad(options:any){if(!options || options.restore!=='1'){this.keepDraft();return;}const draft=loadDraft('photo');if(!draft)return;const state=draft.state;this.IDPhotoForm=state.IDPhotoForm;this.isHd=state.isHd;this.outputMode=state.outputMode;this.paperIndex=state.paperIndex;this.cropLine=state.cropLine;this.saveToElectronic=state.saveToElectronic;this.cachedPath=draft.files.result||'';this.cachedKey=state.cachedKey||'';}
-  papers = [{ label: '六寸 (4R)', value: '4r' }, { label: '五寸 (3R)', value: '3r' }, { label: 'A4', value: 'a4' }];
-  get visibleColors() { return this.showMoreColors ? colors : colors.slice(0, 3); }
-  get currentPath() { if (!this.photoPath) return ''; return this.isHd && this.photoPath.base64HDPath ? this.photoPath.base64HDPath : this.photoPath.base64Path; }
-  get previewWidth(): number { const ratio = this.photoSize.pxWidth / this.photoSize.pxHeight; return Math.round(Math.min(560, 650 * ratio)); }
-  get previewHeight(): number { const ratio = this.photoSize.pxWidth / this.photoSize.pxHeight; return Math.round(Math.min(650, 560 / ratio)); }
-  get accessHint() { return adManager.hint(this.memberState === 'member'); }
-  get saveButtonText() { return (adManager.label(this.memberState === 'member') + ' · ') + (this.outputMode === 'layout' ? '排版照' : '电子照'); }
-  get saveKey() { return JSON.stringify([this.isHd, this.IDPhotoForm, this.outputMode, this.paperIndex, this.cropLine]); }
-  onShow() { this.refreshDimensions(); if (adManager.requiresAd) this.refreshMembership(); }
-  async onUnload() {
-    await this.keepDraft();
-    if (this.photoPath) { removeTemporaryImage(this.photoPath.base64Path); removeTemporaryImage(this.photoPath.base64HDPath); }
-    removeTemporaryImage(this.cachedPath);
-    this.setPhotoPath({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
-  }
-  async refreshMembership() { try { this.memberState = (await getMembershipStatus()).active ? 'member' : 'ordinary'; } catch (_) { this.memberState = 'unknown'; } }
-  refreshDimensions() { const path = this.currentPath; this.actualDimensions = ''; if (!path) return; uni.getImageInfo({ src: path, success: (info: any) => { if (path === this.currentPath) this.actualDimensions = `${info.width}×${info.height} px`; } }); }
-  changeBackgroudColor(color: string) { if (!this.busy) this.IDPhotoForm.color = color; }
-  toggleMoreColors() { if (!this.busy) this.showMoreColors = !this.showMoreColors; }
-  setOutputMode(mode: string) { if (!this.busy) this.outputMode = mode; }
-  onPaperChange(event: any) { if (!this.busy) this.paperIndex = Number(event.detail.value); }
-  onCropLineChange(event: any) { if (!this.busy) this.cropLine = event.detail.value; }
-  onHdChange(event: any) { if (!this.busy) { this.isHd = event.detail.value; this.refreshDimensions(); } }
-  onSaveToElectronicChange(event: any) { if (!this.busy) this.saveToElectronic = event.detail.value; }
-  async save() {
-    if (this.busy) return;
-    this.busy = true;
-    const layout = this.outputMode === 'layout';
-    const key = this.saveKey;
-    let colorPath = ''; let resultPath = '';
-    try {
-      const imagePath = this.currentPath;
-      if (!imagePath) throw new Error('图片路径无效，请重新制作');
-      {
-        const access = await adManager.authorize(this.photoPath.base64Path);
-        if (!access) return;
-        this.memberState = access === 'member' ? 'member' : 'ordinary';
-      }
-      this.processing = true;
-      let output=this.cachedOutput;
-      if(this.cachedPath && this.cachedKey===key){ resultPath=this.cachedPath; } else {
-      const dpi = this.photoSize.dpi || 300;
-      const colorForm: any = { color: this.IDPhotoForm.color.replace('#', ''), dpi };
-      if (this.IDPhotoForm.kb !== undefined) colorForm.kb = this.IDPhotoForm.kb;
-      if (this.IDPhotoForm.render) colorForm.render = this.IDPhotoForm.render;
-      const color = await AddBackgroudColor(colorForm, 'input_image', imagePath);
-      if (!color.image_base64) throw new Error('服务器未返回照片');
-      colorPath = await writeTemporaryImage(color.image_base64, 'color');
-      output = color.image_base64;
-      if (layout) {
-        const result = await GenerateLayoutPhoto({ height: this.photoSize.pxHeight, width: this.photoSize.pxWidth, dpi, paper_size: this.papers[this.paperIndex].value, crop_line: this.cropLine }, 'input_image', colorPath);
-        if (!result.image_base64) throw new Error('服务器未返回排版照');
-        output = result.image_base64; resultPath = await writeTemporaryImage(output, 'layout');
-      } else resultPath = colorPath;
-      const old=this.cachedPath;this.cachedPath=resultPath;this.cachedKey=key;this.cachedOutput=output;removeTemporaryImage(old);
-      }
-      await this.keepDraft();
-      this.processing = false;
-      await saveToAlbum(resultPath);
-      try { StorageManager.recordPhotoCreated(); } catch (_) { /* statistics are optional */ }
-      if (!layout && this.saveToElectronic) {if(!output)output=await readImageBase64(resultPath);this.saveToElectronicPhoto(output);}
-      else uni.showToast({ title: '保存成功', icon: 'success' });
-    } catch (err: any) { showSaveFailure(err); }
-    finally { this.processing = false; if(colorPath!==this.cachedPath)removeTemporaryImage(colorPath); if (resultPath !== colorPath && resultPath!==this.cachedPath) removeTemporaryImage(resultPath); this.busy = false; }
-  }
-  saveToElectronicPhoto(base64Data: string) {
-    if (!ElectronicPhotoManager.canSaveMore()) { uni.showModal({ title: '已保存到相册', content: '电子照已达上限（2张），请先删除后再保存到电子照', showCancel: false }); return; }
-    const photoData = { name: `${this.photoSize.name}证件照`, size: this.actualDimensions || `${this.photoSize.pxWidth}×${this.photoSize.pxHeight}`, color: this.IDPhotoForm.color, hdBase64: base64Data, sdBase64: base64Data };
-    if (ElectronicPhotoManager.save(photoData)) { uni.showToast({ title: '已保存到电子照', icon: 'success' }); }
-    else uni.showModal({ title: '已保存到相册', content: '保存到电子照失败，请检查设备存储空间', showCancel: false });
-  }
-  onShareTimeline() { return { title: this.$product.name + ' - 专业证件照制作', imageUrl: '/static/example.jpeg' }; }
-  onShareAppMessage() { return { title: this.$product.name + ' - 专业证件照制作', path: '/pages/index/index', imageUrl: '/static/example.jpeg' }; }
+const photoStore = usePhotoStore();
+
+const photoSize = computed(() => photoStore.photoConfig);
+
+const photoPath = computed(() => photoStore.photoPath);
+
+const setPhotoPath = photoStore.setPhotoPath;
+
+const IDPhotoForm = ref<any>({ color: '#FFFFFF', kb: undefined, render: 0 });
+
+const isHd = ref(true);
+
+const saveToElectronic = ref(false);
+
+const busy = ref(false);
+
+const processing = ref(false);
+
+const cropLine = ref(false);
+
+const outputMode = ref('photo');
+
+const showMoreColors = ref(false);
+
+const settingsExpanded = ref(false);
+
+const paperIndex = ref(0);
+
+const actualDimensions = ref('');
+
+const memberState = ref<'member' | 'ordinary' | 'unknown'>('unknown');
+
+const cachedPath = ref('');
+
+const cachedKey = ref('');
+
+const cachedOutput = ref('');
+
+async function keepDraft() {
+    if (!photoPath.value)
+        return;
+    await rememberDraft('photo', { standard: photoPath.value.base64Path, hd: photoPath.value.base64HDPath, result: cachedPath.value }, { stage: 'editing', photoSize: photoSize.value, IDPhotoForm: { ...IDPhotoForm.value }, isHd: isHd.value, outputMode: outputMode.value, paperIndex: paperIndex.value, cropLine: cropLine.value, saveToElectronic: saveToElectronic.value, cachedKey: cachedKey.value });
 }
+
+function handleOnHide() {
+    if (!busy.value)
+        keepDraft();
+}
+
+function handleOnLoad(options:any) {
+    if (!options || options.restore !== '1') {
+        keepDraft();
+        return;
+    }
+    const draft = loadDraft('photo');
+    if (!draft)
+        return;
+    const state = draft.state;
+    IDPhotoForm.value = state.IDPhotoForm;
+    isHd.value = state.isHd;
+    outputMode.value = state.outputMode;
+    paperIndex.value = state.paperIndex;
+    cropLine.value = state.cropLine;
+    saveToElectronic.value = state.saveToElectronic;
+    cachedPath.value = draft.files.result || '';
+    cachedKey.value = state.cachedKey || '';
+}
+
+const papers = ref([{ label: '六寸 (4R)', value: '4r' }, { label: '五寸 (3R)', value: '3r' }, { label: 'A4', value: 'a4' }]);
+
+const visibleColors = computed(() => {
+    return showMoreColors.value ? colors : colors.slice(0, 3);
+});
+
+const currentPath = computed(() => {
+    if (!photoPath.value)
+        return '';
+    return isHd.value && photoPath.value.base64HDPath ? photoPath.value.base64HDPath : photoPath.value.base64Path;
+});
+
+const previewWidth = computed<number>(() => {
+    const ratio = photoSize.value.pxWidth / photoSize.value.pxHeight;
+    return Math.round(Math.min(560, 650 * ratio));
+});
+
+const previewHeight = computed<number>(() => {
+    const ratio = photoSize.value.pxWidth / photoSize.value.pxHeight;
+    return Math.round(Math.min(650, 560 / ratio));
+});
+
+const accessHint = computed(() => {
+    return adManager.hint(memberState.value === 'member');
+});
+
+const saveButtonText = computed(() => {
+    return adManager.label(memberState.value === 'member');
+});
+
+const saveKey = computed(() => {
+    return JSON.stringify([isHd.value, IDPhotoForm.value, outputMode.value, paperIndex.value, cropLine.value]);
+});
+
+function handleOnShow() {
+    refreshDimensions();
+    if (adManager.requiresAd)
+        refreshMembership();
+}
+
+async function handleOnUnload() {
+    await keepDraft();
+    if (photoPath.value) {
+        removeTemporaryImage(photoPath.value.base64Path);
+        removeTemporaryImage(photoPath.value.base64HDPath);
+    }
+    removeTemporaryImage(cachedPath.value);
+    setPhotoPath({ base64: '', base64HD: '', base64Path: '', base64HDPath: '' });
+}
+
+async function refreshMembership() {
+    try {
+        memberState.value = (await getMembershipStatus()).active ? 'member' : 'ordinary';
+    }
+    catch (_) {
+        memberState.value = 'unknown';
+    }
+}
+
+function refreshDimensions() {
+    const path = currentPath.value;
+    actualDimensions.value = '';
+    if (!path)
+        return;
+    uni.getImageInfo({ src: path, success: (info: any) => { if (path === currentPath.value)
+            actualDimensions.value = `${info.width}×${info.height} px`; } });
+}
+
+function changeBackgroudColor(color: string) {
+    if (!busy.value)
+        IDPhotoForm.value.color = color;
+}
+
+function toggleMoreColors() {
+    if (!busy.value)
+        showMoreColors.value = !showMoreColors.value;
+}
+
+function setOutputMode(mode: string) {
+    if (!busy.value)
+        outputMode.value = mode;
+}
+
+function onPaperChange(event: any) {
+    if (!busy.value)
+        paperIndex.value = Number(event.detail.value);
+}
+
+function onCropLineChange(event: any) {
+    if (!busy.value)
+        cropLine.value = event.detail.value;
+}
+
+function onHdChange(event: any) {
+    if (!busy.value) {
+        isHd.value = event.detail.value;
+        refreshDimensions();
+    }
+}
+
+function onSaveToElectronicChange(event: any) {
+    if (!busy.value)
+        saveToElectronic.value = event.detail.value;
+}
+
+async function save() {
+    if (busy.value)
+        return;
+    busy.value = true;
+    const layout = outputMode.value === 'layout';
+    const key = saveKey.value;
+    let colorPath = '';
+    let resultPath = '';
+    try {
+        const imagePath = currentPath.value;
+        if (!imagePath)
+            throw new Error('图片路径无效，请重新制作');
+        {
+            const access = await adManager.authorize(photoPath.value.base64Path);
+            if (!access)
+                return;
+            memberState.value = access === 'member' ? 'member' : 'ordinary';
+        }
+        processing.value = true;
+        let output = cachedOutput.value;
+        if (cachedPath.value && cachedKey.value === key) {
+            resultPath = cachedPath.value;
+        }
+        else {
+            const dpi = photoSize.value.dpi || 300;
+            const colorForm: any = { color: IDPhotoForm.value.color.replace('#', ''), dpi };
+            if (IDPhotoForm.value.kb !== undefined)
+                colorForm.kb = IDPhotoForm.value.kb;
+            if (IDPhotoForm.value.render)
+                colorForm.render = IDPhotoForm.value.render;
+            const color = await AddBackgroudColor(colorForm, 'input_image', imagePath);
+            if (!color.image_base64)
+                throw new Error('服务器未返回照片');
+            colorPath = await writeTemporaryImage(color.image_base64, 'color');
+            output = color.image_base64;
+            if (layout) {
+                const result = await GenerateLayoutPhoto({ height: photoSize.value.pxHeight, width: photoSize.value.pxWidth, dpi, paper_size: papers.value[paperIndex.value].value, crop_line: cropLine.value }, 'input_image', colorPath);
+                if (!result.image_base64)
+                    throw new Error('服务器未返回排版照');
+                output = result.image_base64;
+                resultPath = await writeTemporaryImage(output, 'layout');
+            }
+            else
+                resultPath = colorPath;
+            const old = cachedPath.value;
+            cachedPath.value = resultPath;
+            cachedKey.value = key;
+            cachedOutput.value = output;
+            removeTemporaryImage(old);
+        }
+        await keepDraft();
+        processing.value = false;
+        await saveToAlbum(resultPath);
+        try {
+            StorageManager.recordPhotoCreated();
+        }
+        catch (_) { /* statistics are optional */ }
+        if (!layout && saveToElectronic.value) {
+            if (!output)
+                output = await readImageBase64(resultPath);
+            saveToElectronicPhoto(output);
+        }
+        else
+            uni.showToast({ title: '保存成功', icon: 'success' });
+    }
+    catch (err: any) {
+        showSaveFailure(err);
+    }
+    finally {
+        processing.value = false;
+        if (colorPath !== cachedPath.value)
+            removeTemporaryImage(colorPath);
+        if (resultPath !== colorPath && resultPath !== cachedPath.value)
+            removeTemporaryImage(resultPath);
+        busy.value = false;
+    }
+}
+
+function saveToElectronicPhoto(base64Data: string) {
+    if (!ElectronicPhotoManager.canSaveMore()) {
+        uni.showModal({ title: '已保存到相册', content: '电子照已达上限（2张），请先删除后再保存到电子照', showCancel: false });
+        return;
+    }
+    const photoData = { name: `${photoSize.value.name}证件照`, size: actualDimensions.value || `${photoSize.value.pxWidth}×${photoSize.value.pxHeight}`, color: IDPhotoForm.value.color, hdBase64: base64Data, sdBase64: base64Data };
+    if (ElectronicPhotoManager.save(photoData)) {
+        uni.showToast({ title: '已保存到电子照', icon: 'success' });
+    }
+    else
+        uni.showModal({ title: '已保存到相册', content: '保存到电子照失败，请检查设备存储空间', showCancel: false });
+}
+
+function handleOnShareTimeline() {
+    return { title: productConfig.shareTitle, imageUrl: '/static/example.jpeg' };
+}
+
+function handleOnShareAppMessage() {
+    return { title: productConfig.shareTitle, path: '/pages/index/index', imageUrl: '/static/example.jpeg' };
+}
+
+onHide(handleOnHide);
+
+onLoad(handleOnLoad);
+
+onShow(handleOnShow);
+
+onUnload(handleOnUnload);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

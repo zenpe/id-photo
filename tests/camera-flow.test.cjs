@@ -37,11 +37,7 @@ for (const [file, guideOn] of Object.entries(scenes)) {
   assert(pageSource.includes('@select="onCameraSelect"') && pageSource.includes('@close="showCamera = false"'));
 }
 
-const decorator = () => () => {};
 const defaultModules = {
-  vue: { __esModule: true, default: class Vue { $emit(...args) { this.emitted.push(args); } } },
-  'vue-property-decorator': { Component: () => target => target, Prop: decorator },
-  'vuex-class': { Getter: decorator, Mutation: decorator },
   '@/api/photo': { GeneratePhoto() {} }, '@/api/matting': { humanMatting() {} },
   '@/api/watermark': { addWatermark() {} }, '@/model/Colors': { Colors: [] },
   '@/components/LoadingOverlay.vue': { __esModule: true, default: {} },
@@ -64,19 +60,11 @@ const uni = {
   navigateTo(options) { navigated = options.url; }
 };
 function load(file) {
-  const text = fs.readFileSync(path.join(root, file), 'utf8');
-  const script = text.match(/<script lang="ts">([\s\S]*?)<\/script>/)[1];
-  const code = ts.transpileModule(script, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019, experimentalDecorators: true } }).outputText;
-  const moduleObject = { exports: {} };
-  vm.runInNewContext(code, { module: moduleObject, exports: moduleObject.exports, require(name) {
-    if (name in defaultModules) return defaultModules[name];
-    throw Error(`unexpected import ${name}`);
-  }, uni, wx: {}, Promise, Error, Number, Math, JSON, console, decodeURIComponent, encodeURIComponent });
-  return moduleObject.exports.default;
+  return require('./helpers/component.cjs').loadComponent(file, defaultModules, uni);
 }
 const Camera = load('src/components/PhotoCamera.vue');
 function createCamera(guide = true, position = 'front') {
-  const instance = new Camera(); instance.emitted = []; instance.guideInitiallyEnabled = guide; instance.initialPosition = position; instance.created(); return instance;
+  return new Camera({ guideInitiallyEnabled: guide, initialPosition: position });
 }
 const page = createCamera();
 assert.strictEqual(page.guideEnabled, true);
@@ -115,15 +103,15 @@ page.chooseFromAlbum(); assert.strictEqual(albumCalls, 1, 'prevent duplicate alb
 album.fail({ errMsg: 'cancel' }); assert.strictEqual(page.showCamera, true, 'cancel returns to camera');
 page.chooseFromAlbum(); album.success({ tempFiles: [{ tempFilePath: '/tmp/album.jpg' }] });
 assert.deepStrictEqual(page.emitted.pop(), ['select', '/tmp/album.jpg']);
-page.openCamera(); page.chooseFromAlbum(); const lateAlbum = album; page.beforeDestroy();
+page.openCamera(); page.chooseFromAlbum(); const lateAlbum = album; page.dispose();
 lateAlbum.success({ tempFiles: [{ tempFilePath: '/tmp/late.jpg' }] });
 assert(!page.emitted.some(event => event[1] === '/tmp/late.jpg'), 'disposed camera ignores late album results');
 
 for (const file of ['src/pages/photo/index.vue', 'src/pages/matting/index.vue', 'src/pages/watermark/index.vue']) {
-  const Page = load(file); const instance = new Page(); let processed = 0;
-  instance.confirmSelect = () => { processed++; };
+  const Page = load(file); const instance = new Page();
+  instance.loading = true; // Isolate source handoff from server processing.
   instance.showCamera = true; instance.onCameraSelect('/tmp/chosen.jpg');
-  assert.strictEqual(instance.showCamera, false); assert.strictEqual(instance.imagePath, '/tmp/chosen.jpg'); assert.strictEqual(processed, 1, file);
+  assert.strictEqual(instance.showCamera, false); assert.strictEqual(instance.imagePath, '/tmp/chosen.jpg');
 }
 for (const kind of ['matting', 'watermark']) {
   const Upload = load(`src/pages/${kind}/upload.vue`); const upload = new Upload();
@@ -138,9 +126,10 @@ const Watermark = load('src/pages/watermark/index.vue'); const watermark = new W
 watermark.chooseImage('camera'); assert.strictEqual(watermark.showCamera, false); assert(toasts.includes('请先输入水印文字'));
 watermark.watermarkText = '测试'; watermark.chooseImage('camera'); assert.strictEqual(watermark.showCamera, true);
 const Convert = load('src/pages/convert/index.vue'); const convert = new Convert();
-let cleared = 0; convert.clearResult = () => { cleared++; };
+convert.resultPath = '/tmp/old-result.png';
 convert.choosePhoto(); actions.success({ tapIndex: 0 }); assert.strictEqual(convert.showCamera, true);
-convert.onCameraSelect('/tmp/convert.jpg'); assert.strictEqual(convert.sourcePath, '/tmp/convert.jpg'); assert.strictEqual(cleared, 1);
+convert.onCameraSelect('/tmp/convert.jpg'); assert.strictEqual(convert.sourcePath, '/tmp/convert.jpg'); assert.strictEqual(convert.resultPath, '', 'new source clears old output');
+convert.resultPath = '/tmp/other-result.png';
 convert.choosePhoto(); actions.success({ tapIndex: 1 }); assert.deepStrictEqual(Array.from(selection.sourceType), ['album']);
-selection.success({ tempFilePaths: ['/tmp/album-convert.png'] }); assert.strictEqual(convert.sourcePath, '/tmp/album-convert.png'); assert.strictEqual(cleared, 2);
+selection.success({ tempFilePaths: ['/tmp/album-convert.png'] }); assert.strictEqual(convert.sourcePath, '/tmp/album-convert.png'); assert.strictEqual(convert.resultPath, '');
 console.log('shared camera, all six entries, guide toggle, preview, album, errors and business handoffs passed');

@@ -5,7 +5,7 @@
         <view class="app-icon">
           <u-image src="/static/logo.png" width="60rpx" height="60rpx" radius="14rpx" />
         </view>
-        <text class="app-title">{{ $product.name }}用户协议</text>
+        <text class="app-title">{{ productConfig.name }}用户协议</text>
         <text class="update-date">更新日期：2026年11月</text>
       </view>
 
@@ -14,7 +14,7 @@
           <view class="section-block">
             <text class="section-title">1. 服务条款</text>
             <text class="section-content">
-              欢迎使用{{ $product.name }}应用（以下简称"本应用"）。本应用是一款图片制作与编辑工具，为用户提供证件照裁剪、背景处理、排版和格式调整服务。
+              欢迎使用{{ productConfig.name }}应用（以下简称"本应用"）。本应用是一款图片制作与编辑工具，为用户提供证件照裁剪、背景处理、排版和格式调整服务。
             </text>
             <text class="section-content">
               使用本应用即表示您已充分阅读、理解并同意本协议的所有条款。如果您不同意本协议的任何条款，请立即停止使用本应用。
@@ -145,13 +145,13 @@
               • 意见反馈：个人中心 → 意见反馈
             </text>
             <text class="section-list">
-              • 客服邮箱：{{ $product.contact }}
+              • 客服邮箱：{{ productConfig.contact }}
             </text>
           </view>
 
           <view class="footer-section">
             <text class="footer-text">本协议自发布之日起生效</text>
-            <text class="footer-text">© 2025 {{ $product.name }} 版权所有</text>
+            <text class="footer-text">© 2025 {{ productConfig.name }} 版权所有</text>
           </view>
         </view>
       </scroll-view>
@@ -164,68 +164,58 @@
   </view>
 </template>
 
-<script lang="ts">
-import Vue from 'vue';
-import { Component } from "vue-property-decorator";
-
+<script setup lang="ts">
 // 声明微信小程序类型
 declare const wx: any;
+import { productConfig } from '@/config';
 
-@Component({})
-export default class UserAgreement extends Vue {
-  onLoad() {
+import { onLoad, onShareTimeline, onShareAppMessage } from '@dcloudio/uni-app';
+
+function handleOnLoad() {
     uni.setNavigationBarTitle({
-      title: '用户协议'
+        title: '用户协议'
     });
-
     // 显示分享菜单，包括分享到朋友圈
     // #ifdef MP-WEIXIN
     wx.showShareMenu({
-      menus: ['shareAppMessage', 'shareTimeline'],
-      success: (res: any) => {
-        console.log('显示分享菜单成功', res);
-      },
-      fail: (err: any) => {
-        console.log('显示分享菜单失败', err);
-      }
+        menus: ['shareAppMessage', 'shareTimeline'],
+        fail: () => {
+            // No shareTimeline permission on some AppIDs: keep the basic share entry.
+            wx.showShareMenu({ menus: ['shareAppMessage'], fail: () => {} });
+        }
     });
     // #endif
-  }
-
-  /**
-   * 分享成功回调 - 原生分享按钮使用
-   */
-  onShareSuccess() {
-    console.log('分享成功回调');
-    uni.showToast({
-      title: '分享成功',
-      icon: 'success',
-      duration: 2000
-    });
-  }
-
-  /**
-   * 分享到朋友圈方法 - 供微信小程序调用
-   */
-  onShareTimeline() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      query: '',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
-
-  /**
-   * 页面分享方法 - 供微信小程序调用
-   */
-  onShareAppMessage() {
-    return {
-      title: this.$product.name + ' - 专业证件照制作',
-      path: '/pages/index/index',
-      imageUrl: '/static/example.jpeg'
-    };
-  }
 }
+
+function onShareSuccess() {
+    uni.showToast({
+        title: '分享成功',
+        icon: 'success',
+        duration: 2000
+    });
+}
+
+function handleOnShareTimeline() {
+    return {
+        title: productConfig.shareTitle,
+        query: '',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+function handleOnShareAppMessage() {
+    return {
+        title: productConfig.shareTitle,
+        path: '/pages/index/index',
+        imageUrl: '/static/example.jpeg'
+    };
+}
+
+onLoad(handleOnLoad);
+
+onShareTimeline(handleOnShareTimeline);
+
+onShareAppMessage(handleOnShareAppMessage);
 </script>
 
 <style lang="scss" scoped>

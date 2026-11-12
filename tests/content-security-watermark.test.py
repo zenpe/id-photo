@@ -77,4 +77,6 @@ if __name__ == '__main__':
     try:
         unittest.main(verbosity=2)
     finally:
+        from miniapp_telemetry import writer
+        writer.queue.join()
         DATA.cleanup()

@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt constraints-api.txt ./
+COPY requirements.txt requirements-api.lock constraints-api.txt ./
 COPY hivision-core/requirements.txt hivision-core/requirements-app.txt ./hivision-core/
-RUN pip install --no-cache-dir -r requirements.txt && pip check \
+RUN pip install --no-cache-dir --require-hashes -r requirements-api.lock && pip check \
     && pip freeze --all > /app/requirements.resolved.txt
 
 # Models are verified by size and SHA-256 and cached in the image layer.
@@ -24,6 +24,7 @@ RUN python scripts/download_models.py --models all
 COPY hivision-core/hivision/ ./hivision-core/hivision/
 COPY hivision-overlay/*.py ./hivision-overlay/
 COPY hivision-overlay/miniapp_admin.html hivision-overlay/miniapp_admin.css hivision-overlay/miniapp_admin.js ./hivision-overlay/
+COPY branding.json brand-logo.svg ./
 # Import smoke catches missing resources/dependencies before shipping an image.
 RUN python -c "import deploy_api, miniapp_push, miniapp_admin"
 

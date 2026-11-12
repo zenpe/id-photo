@@ -1,13 +1,13 @@
 <div align="center">
 
-# 小七快照拍
+# 一寸不差照片助手
 
 **证件照制作、图片处理与会员运营的一体化微信小程序**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![uni-app](https://img.shields.io/badge/uni--app-2.x-2b9939.svg)](https://uniapp.dcloud.io/)
-[![Vue](https://img.shields.io/badge/Vue-2.6-42b883.svg)](https://v2.vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-4.x-3178c6.svg)](https://www.typescriptlang.org/)
+[![uni-app](https://img.shields.io/badge/uni--app-Vue3-2b9939.svg)](https://uniapp.dcloud.io/)
+[![Vue](https://img.shields.io/badge/Vue-3.4-42b883.svg)](https://vuejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg)](https://www.typescriptlang.org/)
 
 [界面展示](#界面展示) · [功能介绍](#功能介绍) · [快速开始](#快速开始) · [管理后台](#管理后台) · [项目结构](#项目结构)
 
@@ -17,7 +17,7 @@
 
 ## 项目简介
 
-小七快照拍是一个面向个人用户的照片制作工具。用户可以选择证件照规格，通过拍摄或相册导入照片，完成裁剪、背景处理、排版、水印、格式转换和压缩。
+一寸不差照片助手是一个面向个人用户的照片制作工具。用户可以选择证件照规格，通过拍摄或相册导入照片，完成裁剪、背景处理、排版、水印、格式转换和压缩。
 
 仓库包含微信小程序、基于 [HivisionIDPhotos](https://github.com/Zeyi-Lin/HivisionIDPhotos) 的图片处理服务，以及会员、支付和运营管理后台。项目用于个人图片制作与编辑，不提供用户内容公开发布、社区互动或内容分发。
 
@@ -106,9 +106,8 @@ npm install --global yarn@1.22.22
 yarn install --frozen-lockfile
 ```
 
-请使用 Yarn 安装依赖，避免 npm 对旧版 Vue CLI 可选 peer dependencies 重新解析造成
-Webpack 4/5 冲突。Node 24 所需的 `@achrinza/node-ipc` 已固定为支持该版本的 9.2.10，
-不需要 `--ignore-engines`、`--legacy-peer-deps` 或 `--force`。构建命令仍可通过 npm 运行。
+前端采用 uni-app Vue 3、Vite、TypeScript、Pinia 和 uview-plus。请使用 Yarn 安装仓库的固定版本依赖，
+不需要旧版 Vue CLI、Webpack 或 Node 兼容补丁。构建命令仍可通过 npm 运行。
 `.node-version` 供 fnm 等版本管理工具读取；Windows/Linux 构建由 GitHub Actions 检查。
 
 ### 2. 配置并启动后端
@@ -126,11 +125,11 @@ fnOS / N100 按 [Docker 部署说明](docs/deploy-fnos.md) 操作。默认只启
 cp .env.example .env.local
 ```
 
-在 `.env.local` 中填写自己的公开配置（不要放 AppSecret），例如：
+品牌名称、简称、首页说明与分享文案统一放在 `backend/branding.json`，前端和管理后台共用。
+在 `.env.local` 中填写自己的服务地址、实际运营主体和联系方式（不要放 AppSecret），例如：
 
 ```dotenv
 VUE_APP_API_BASE_URL=https://your-api-domain.example
-VUE_APP_BRAND_NAME=你的照片工具
 VUE_APP_OPERATOR=实际运营主体
 VUE_APP_CONTACT=实际客服邮箱或联系方式
 ```
@@ -216,8 +215,9 @@ id-photo/
 ## 发布与验证范围
 
 本轮实现、每批 review 和待实机验收见 [实施记录](docs/rollout-review.md)。默认模型为标准版 Hivision MODNet。
-本地已验证 Node 24 的锁文件安装、微信构建与隔离流程；镜像构建、真实推理、微信回调及 NAS 备份恢复须在 CI/NAS 完成。
-`yarn test:node24` 运行不访问微信/支付/用户照片的回归；`tests/` 中依赖开发工具自动化的脚本为手动专项验收，不包含在此命令中。
+本地已验证 Node 24 锁文件安装、类型检查、微信与 H5 构建、浏览器回归及默认模型真实推理；镜像构建、目标 NAS 性能、微信回调及备份恢复仍需在目标环境验收。
+`yarn test:node24` 运行不访问微信/支付/用户照片的回归。四个依赖 Vue 2 实例内部结构的微信自动化脚本已标记为历史资料，不能作为 Vue 3 验收依据，具体清单见迁移记录；其他开发工具脚本也未在本轮连接微信工具执行。
 
-Vue 2 / uni-app 2 属于旧工具链，Node 24 补丁不等于框架升级。Vue 3 迁移、长任务队列另立迭代。
+Vue 3 迁移、后端图片任务容量限制及集成验证见 [迁移记录](docs/migration-vue3.md)。
+`yarn typecheck` 检查页面脚本和模板；`python scripts/test-backend.py` 运行隔离的后端回归。
 手动调试资料在 `docs/debug/`，macOS 历史恢复脚本在 `scripts/macos/`，均不是 fnOS 启动入口。

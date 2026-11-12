@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const iconSource = fs.readFileSync(path.join(root, 'node_modules/uview-ui/components/u-icon/icons.js'), 'utf8');
+const iconSource = fs.readFileSync(path.join(root, 'node_modules/uview-plus/components/u-icon/icons.js'), 'utf8');
 const knownIcons = new Set(Array.from(iconSource.matchAll(/'uicon-([^']+)'/g), match => match[1]));
 const nativeToastIcons = new Set(['success', 'error', 'loading', 'none']);
 const problems = [];
@@ -31,5 +31,5 @@ function scan(directory) {
 }
 
 scan(path.join(root, 'src'));
-assert.deepStrictEqual(problems, [], `Unsupported uView icons:\n${problems.join('\n')}`);
-console.log('UI icon names: all static and listed icons exist in uView');
+assert.deepStrictEqual(problems, [], `Unsupported uview-plus icons:\n${problems.join('\n')}`);
+console.log('UI icon names: all static and listed icons exist in uview-plus');

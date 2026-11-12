@@ -1,5 +1,7 @@
 # 分批实施与 Review 记录
 
+> Historical Vue 2 record. Current migration results and acceptance scope: [Vue 3 migration](migration-vue3.md).
+
 本地代码验证与 NAS、微信平台、EdgeOne/Lucky 的实机验收分别记录。
 
 ## 第 0 批：当前修复基线
